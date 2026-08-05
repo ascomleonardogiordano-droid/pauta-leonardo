@@ -40,14 +40,25 @@ def log(msg):
 
 def conectar():
     usuario = os.environ.get("GMAIL_USER", "").strip()
-    senha = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
+    # o Google exibe a senha de app como "abcd efgh ijkl mnop";
+    # o IMAP so aceita sem espaco nenhum
+    senha = re.sub(r"\s+", "", os.environ.get("GMAIL_APP_PASSWORD", ""))
     if not usuario or not senha:
         sys.exit("ERRO: defina GMAIL_USER e GMAIL_APP_PASSWORD.")
     imap = imaplib.IMAP4_SSL("imap.gmail.com", 993)
     try:
         imap.login(usuario, senha)
     except imaplib.IMAP4.error as e:
-        sys.exit("ERRO de login no Gmail (confira a senha de app): %s" % e)
+        sys.exit(
+            "ERRO de login no Gmail: %s\n"
+            "  Verifique, nesta ordem:\n"
+            "  1. GMAIL_APP_PASSWORD e uma senha de app (16 caracteres), nao a senha da conta;\n"
+            "  2. GMAIL_USER e a conta onde os rascunhos sao criados (%r);\n"
+            "  3. a verificacao em duas etapas esta ligada na conta;\n"
+            "  4. o IMAP esta ativo em Gmail > Ver todas as configuracoes > Encaminhamento e POP/IMAP.\n"
+            "  (senha recebida: %d caracteres apos remover espacos)"
+            % (e, usuario, len(senha))
+        )
     return imap
 
 
