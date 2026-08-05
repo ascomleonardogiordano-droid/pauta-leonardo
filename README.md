@@ -1,53 +1,115 @@
 # Dashboard — Pauta Diária | Leonardo Giordano
 
-Painel visual da pauta diária de comunicação, alimentado pela rotina em nuvem
-**“Pauta diária + e-mail — Leonardo Giordano”**.
-
-## Como funciona
-
-```
-Rotina (todo dia 7h BRT)  →  rascunho no Gmail  →  bloco <!--PAUTA_JSON-->  →  data/dias/*.js  →  index.html
-```
-
-A rotina (`trig_01BGqcJM44Rq1FCxx3gzgKeR`) varre notícias das últimas 24h, escreve resumo,
-ângulo, post pronto, legenda e hashtags de cada item, e cria um rascunho no Gmail para
-`ascomleonardogiordano@gmail.com`. No fim do corpo do e-mail ela grava um bloco JSON
-delimitado por `<!--PAUTA_JSON-->` — é esse bloco que vira o dashboard.
-
-## Como usar
-
-- **Abrir:** dê duplo clique em `index.html` (funciona offline, sem servidor).
-- **Atualizar com a pauta de hoje:** no Claude Code, dentro desta pasta, rode `/atualizar-pauta`
-  (ou simplesmente peça “atualiza o dashboard da pauta”).
-
-No painel você tem: seletor de dia, termômetro do dia (quente/tranquilo), resumo, contagem por
-área, filtro por área, busca livre, link para a matéria original e botões **Copiar** no post
-pronto, na legenda e nas hashtags.
-
-## Compartilhar / abrir no celular
-
-- **Link:** https://claude.ai/code/artifact/3ac739f8-a85d-45e8-b70c-ac2d7aeb1bc0
-  (nasce **privado**; libere em *Compartilhar*, na própria página, para o cliente enxergar).
-- **Arquivo único:** `dist/dashboard-completo.html` — mande por WhatsApp, e-mail ou Drive;
-  abre offline em qualquer celular, sem conta e sem internet.
-- Ambos são regerados por `python scripts/build_share.py`. É uma **foto** dos dados: para
-  refletir a pauta de um novo dia, rode `/atualizar-pauta`, que reconstrói e republica no
-  mesmo link.
-
-## Estrutura
+Painel da pauta diária de comunicação, alimentado automaticamente pelos rascunhos que as
+rotinas de IA criam no Gmail. Publicado no GitHub Pages e atualizado sozinho, sem depender
+de nenhuma máquina ligada.
 
 ```
-index.html               painel completo (HTML/CSS/JS, sem dependências)
-data/manifest.js         lista das datas disponíveis
-data/dias/AAAA-MM-DD.js  uma pauta por arquivo
-scripts/build_share.py   embute os dados e gera as versões de arquivo único
-dist/                    versões compartilháveis (geradas, não edite à mão)
-.claude/commands/        comando /atualizar-pauta
+Rotina 07h ┐
+           ├─► rascunho no Gmail (bloco <!--PAUTA_JSON-->)
+Rotina 12h ┘              │
+                          ▼
+       GitHub Actions (07:25 e 12:25 BRT) lê o Gmail por IMAP
+                          │
+                          ▼
+          data/dias/*.js  →  commit  →  GitHub Pages
 ```
 
-## Observações
+> ⚠️ **O site é público.** Qualquer pessoa com o link vê a pauta, e o repositório é público —
+> todo o histórico de posts sugeridos fica aberto e indexável. Foi uma escolha consciente;
+> se um dia precisar fechar, veja "Fechando o acesso" no fim deste arquivo.
 
-- Rascunhos anteriores a 04/08/2026 20:23 não têm o bloco JSON (versão antiga da rotina) e por
-  isso não aparecem no dashboard.
-- Os links vêm embrulhados pelo Gmail (`google.com/url?q=…`); o painel desembrulha na hora de
-  exibir, então os dados originais podem ser guardados como vieram.
+## Instalação (uma vez só)
+
+### 1. Autenticar o GitHub CLI
+
+```bash
+gh auth login
+```
+
+Escolha *GitHub.com* → *HTTPS* → *Login with a web browser* e cole o código exibido.
+
+### 2. Criar o repositório e enviar o código
+
+```bash
+gh repo create pauta-leonardo --public --source=. --remote=origin --push
+```
+
+### 3. Gerar uma senha de app do Gmail
+
+A automação lê o Gmail por IMAP, e o Google não aceita a senha normal da conta nisso.
+
+1. A conta precisa ter **verificação em duas etapas** ligada.
+2. Vá em https://myaccount.google.com/apppasswords
+3. Crie uma senha chamada "Dashboard pauta" e copie os 16 caracteres.
+
+### 4. Guardar as credenciais no GitHub
+
+Em **Settings → Secrets and variables → Actions → New repository secret**, crie dois:
+
+| Nome | Valor |
+|---|---|
+| `GMAIL_USER` | `ascomleonardogiordano@gmail.com` |
+| `GMAIL_APP_PASSWORD` | a senha de 16 caracteres do passo 3 |
+
+Secrets são criptografados: nem o GitHub mostra o valor depois de salvo, e ele não aparece
+nos logs de execução.
+
+### 5. Ligar o GitHub Pages
+
+Em **Settings → Pages → Build and deployment → Source**, escolha **GitHub Actions**.
+
+### 6. Testar
+
+Em **Actions → Atualizar pauta e publicar → Run workflow**. Em ~1 minuto o site sobe em
+`https://SEU-USUARIO.github.io/pauta-leonardo/`.
+
+## Rotina normal
+
+Nada. O GitHub Actions roda sozinho às **07:25 e 12:25** (horário de Brasília), logo depois
+das duas rotinas que criam os rascunhos. Se aparecer pauta nova, ele commita e republica; se
+não aparecer, encerra sem mexer em nada.
+
+O agendador do GitHub pode atrasar alguns minutos em horário de pico — é normal e não quebra
+nada, o próximo ciclo pega o que faltou.
+
+Para forçar uma atualização na hora: **Actions → Run workflow**.
+
+## O que tem aqui
+
+```
+index.html                      o painel (HTML/CSS/JS, sem dependências)
+data/manifest.js                lista de pautas disponíveis   ← gerado
+data/dias/AAAA-MM-DD.js         pauta da manhã                ← gerado
+data/dias/AAAA-MM-DD-tarde.js   pauta da tarde                ← gerado
+scripts/sync_gmail.py           lê os rascunhos por IMAP e grava os dados
+scripts/build_share.py          gera a versão de arquivo único
+.github/workflows/              a automação
+```
+
+Rodar na mão, se precisar:
+
+```bash
+GMAIL_USER=... GMAIL_APP_PASSWORD=... python scripts/sync_gmail.py
+```
+
+## As rotinas que alimentam isso
+
+| Rotina | Horário (BRT) | Assunto do rascunho | Turno |
+|---|---|---|---|
+| Pauta diária + e-mail | 07h | `Pauta do dia — …` | manhã |
+| Pauta da tarde | 12h | `Pauta da tarde — …` | tarde |
+
+Ambas escrevem, no fim do corpo do e-mail, um bloco entre `<!--PAUTA_JSON-->` e
+`<!--/PAUTA_JSON-->`. É só esse bloco que a automação lê — o resto do e-mail é para leitura
+humana. Rascunhos sem o bloco (versões antigas) são ignorados sem erro.
+
+Se um dia mudar o formato do JSON nas rotinas, ajuste `scripts/sync_gmail.py` junto.
+
+## Fechando o acesso
+
+O GitHub Pages é sempre público nos planos gratuito e Pro — tornar o repositório privado
+esconde o código e o histórico, mas **não** fecha o site. Para tirar a página do ar:
+**Settings → Pages → Source → None**. A automação continua rodando e guardando as pautas no
+repositório; aí você distribui `dashboard-completo.html` (arquivo único, gerado a cada
+execução) para quem precisar.
