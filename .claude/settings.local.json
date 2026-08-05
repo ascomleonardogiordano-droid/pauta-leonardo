@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__scheduled-tasks__list_scheduled_tasks",
-      "Skill(schedule)",
-      "Skill(schedule:*)"
-    ]
-  }
-}

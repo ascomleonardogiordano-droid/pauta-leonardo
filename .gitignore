@@ -1,3 +1,6 @@
+# configuração local do Claude Code — não vai para o repositório
+.claude/settings.local.json
+
 # gerados pelo build — não precisam ir para o repositório
 dist/
 _site/
