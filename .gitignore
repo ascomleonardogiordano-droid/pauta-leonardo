@@ -1,0 +1,4 @@
+# gerados pelo build — não precisam ir para o repositório
+dist/
+_site/
+__pycache__/

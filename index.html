@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pauta Diária — Leonardo Giordano</title>
+<style>
+  :root{
+    --bg:#f6f6f4; --panel:#ffffff; --line:#e3e2dd; --line-soft:#efeeea;
+    --ink:#191817; --ink-2:#5c5a55; --ink-3:#8b8880;
+    --accent:#c0272d; --accent-soft:#fdeceb;
+    --quente:#c0272d; --quente-bg:#fdeceb;
+    --tranquila:#2e7d5b; --tranquila-bg:#e7f4ee;
+    --radius:12px;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px -16px rgba(0,0,0,.25);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141414; --panel:#1d1d1c; --line:#333230; --line-soft:#2a2928;
+      --ink:#f0efec; --ink-2:#b0ada6; --ink-3:#807d76;
+      --accent:#f0555b; --accent-soft:#3a1a1c;
+      --quente:#f0555b; --quente-bg:#3a1a1c;
+      --tranquila:#6ec49a; --tranquila-bg:#17301f;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  /* o botão de tema do visualizador manda em ambas as direções */
+  :root[data-theme="dark"]{
+    --bg:#141414; --panel:#1d1d1c; --line:#333230; --line-soft:#2a2928;
+    --ink:#f0efec; --ink-2:#b0ada6; --ink-3:#807d76;
+    --accent:#f0555b; --accent-soft:#3a1a1c;
+    --quente:#f0555b; --quente-bg:#3a1a1c;
+    --tranquila:#6ec49a; --tranquila-bg:#17301f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f6f4; --panel:#ffffff; --line:#e3e2dd; --line-soft:#efeeea;
+    --ink:#191817; --ink-2:#5c5a55; --ink-3:#8b8880;
+    --accent:#c0272d; --accent-soft:#fdeceb;
+    --quente:#c0272d; --quente-bg:#fdeceb;
+    --tranquila:#2e7d5b; --tranquila-bg:#e7f4ee;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px -16px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 64px}
+
+  /* ---------- header ---------- */
+  header.top{
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+    position:sticky; top:0; z-index:20;
+  }
+  .top-inner{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+  .star{width:26px;height:26px;flex:none;color:var(--accent)}
+  .brand h1{font-size:16px;margin:0;letter-spacing:-.01em}
+  .brand span{display:block;font-size:12px;color:var(--ink-3);font-weight:400}
+  select, .btn{
+    font:inherit; color:var(--ink); background:var(--panel);
+    border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer;
+  }
+  select:hover,.btn:hover{border-color:var(--ink-3)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+
+  /* ---------- hero ---------- */
+  .hero{padding:28px 0 8px}
+  .hero-date{font-size:28px;font-weight:650;letter-spacing:-.02em;margin:0}
+  .hero-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;
+    padding:4px 10px;border-radius:999px;
+  }
+  .pill.quente{background:var(--quente-bg);color:var(--quente)}
+  .pill.tranquila{background:var(--tranquila-bg);color:var(--tranquila)}
+  .pill.turno{background:var(--bg);color:var(--ink-3);border:1px solid var(--line)}
+  .pill.turno.tarde{color:var(--ink-2)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .hero-sum{margin:14px 0 0;color:var(--ink-2);max-width:72ch;font-size:15.5px}
+
+  /* ---------- stats ---------- */
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 0}
+  .stat{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 14px;min-width:92px;
+  }
+  .stat b{display:block;font-size:20px;font-weight:650;letter-spacing:-.02em}
+  .stat span{font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    margin:26px 0 18px;padding-top:18px;border-top:1px solid var(--line);
+  }
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    font-size:13px;padding:5px 12px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink-2);
+  }
+  .chip:hover{border-color:var(--ink-3)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .search{
+    margin-left:auto;flex:1;min-width:200px;max-width:280px;
+    font:inherit;color:var(--ink);background:var(--panel);
+    border:1px solid var(--line);border-radius:8px;padding:7px 11px;
+  }
+  .search:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;
+  }
+  .card-head{padding:16px 18px 12px;border-bottom:1px solid var(--line-soft)}
+  .tagline{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .area{
+    font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    padding:3px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent);
+  }
+  .src{font-size:12px;color:var(--ink-3)}
+  .src a{color:var(--ink-3);text-decoration:underline;text-underline-offset:2px}
+  .src a:hover{color:var(--accent)}
+  .card h3{margin:0;font-size:16.5px;line-height:1.35;letter-spacing:-.01em;font-weight:650}
+  .card-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:14px}
+  .block-label{
+    font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:5px;display:flex;align-items:center;gap:8px;
+  }
+  .block p{margin:0;color:var(--ink-2);font-size:14px}
+  .post{
+    background:var(--bg);border:1px solid var(--line-soft);border-radius:9px;
+    padding:12px 13px;white-space:pre-wrap;font-size:14px;color:var(--ink);
+  }
+  .copy{
+    margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 4px;border-radius:4px;
+  }
+  .copy:hover{background:var(--accent-soft)}
+  .copy.ok{color:var(--tranquila)}
+  .tags{display:flex;flex-wrap:wrap;gap:5px}
+  .tag{font-size:12px;color:var(--ink-3);background:var(--bg);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
+  .empty{padding:56px 20px;text-align:center;color:var(--ink-3)}
+
+  @media (max-width:640px){
+    .wrap{padding:0 14px 48px}
+    .top-inner{padding:12px 14px;gap:10px}
+    .brand{width:100%}
+    #seletorDia{flex:1;min-width:0}
+    .hero{padding:20px 0 4px}
+    .hero-date{font-size:23px}
+    .search{margin-left:0;max-width:none;width:100%}
+    .stat{flex:1;min-width:78px}
+  }
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+  footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7L12 17.3 5.7 20.9l1.7-7L2 9.2l7.1-.6z"/></svg>
+      <div>
+        <h1>Pauta Diária</h1>
+        <span>Assessoria de Leonardo Giordano — vereador de Niterói (PCdoB) · uso interno</span>
+      </div>
+    </div>
+    <select id="seletorDia" aria-label="Escolher dia"></select>
+    <a class="btn" id="linkGmail" href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noopener">Abrir rascunho no Gmail</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <h2 class="hero-date" id="heroData">—</h2>
+    <div class="hero-meta">
+      <span class="pill" id="heroTemp"><span class="dot"></span><span id="heroTempTxt">—</span></span>
+      <span class="pill turno" id="heroTurno">—</span>
+      <span class="src" id="heroFonte"></span>
+    </div>
+    <p class="hero-sum" id="heroResumo"></p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <div class="toolbar">
+    <div class="chips" id="chips"></div>
+    <input class="search" id="busca" type="search" placeholder="Buscar na pauta…">
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="vazio" hidden>Nenhum item corresponde ao filtro.</div>
+
+  <footer>
+    Documento de trabalho da assessoria. Os textos são <b>sugestões de post ainda não publicadas</b>, geradas
+    automaticamente para aprovação — não são declarações do vereador.<br>
+    Alimentado por duas rotinas que criam rascunhos no Gmail: <b>“Pauta diária + e-mail”</b> às 7h e
+    <b>“Pauta da tarde”</b> às 12h (horário de Brasília).
+  </footer>
+</div>
+
+<script src="data/manifest.js"></script>
+<script>
+/* ---------- carga dos dados ---------- */
+const PAUTAS = [];
+function registrarPauta(p){ PAUTAS.push(p); }
+
+const AREAS = ["Niterói","RJ","Nacional","Cultura","Saúde"];
+let filtroArea = "Todas";
+let termo = "";
+let atual = null;
+
+function carregar(){
+  const dias = (window.PAUTAS_DIAS || []).slice();
+  if(!dias.length){ document.getElementById("grid").innerHTML =
+    '<div class="empty">Nenhum dia carregado. Verifique <code>data/manifest.js</code>.</div>'; return; }
+  let pendentes = dias.length;
+  dias.forEach(d => {
+    const s = document.createElement("script");
+    s.src = "data/dias/" + d + ".js";
+    s.onload = s.onerror = () => { if(--pendentes === 0) iniciar(); };
+    document.head.appendChild(s);
+  });
+}
+
+function iniciar(){
+  // mais recente primeiro; no mesmo dia, a tarde vem antes da manhã
+  PAUTAS.sort((a,b) => ordem(b).localeCompare(ordem(a)));
+  const sel = document.getElementById("seletorDia");
+  sel.innerHTML = PAUTAS.map((p,i) => `<option value="${i}">${rotuloPauta(p)}</option>`).join("");
+  sel.onchange = () => selecionar(PAUTAS[+sel.value]);
+  document.getElementById("busca").oninput = e => { termo = e.target.value.toLowerCase().trim(); render(); };
+  montarChips();
+  selecionar(PAUTAS[0]);
+}
+
+/* ---------- render ---------- */
+function selecionar(p){
+  atual = p;
+  document.getElementById("heroData").textContent = dataLonga(p.data);
+  const turno = turnoDe(p);
+  const et = document.getElementById("heroTurno");
+  et.textContent = turno === "tarde" ? "Varredura da tarde" : "Varredura da manhã";
+  et.className = "pill turno " + turno;
+  const temp = (p.temperatura || "").toLowerCase() === "quente" ? "quente" : "tranquila";
+  const pill = document.getElementById("heroTemp");
+  pill.className = "pill " + temp;
+  document.getElementById("heroTempTxt").textContent = temp === "quente" ? "Dia quente" : "Dia tranquilo";
+  document.getElementById("heroResumo").textContent = p.resumo_dia || "";
+  document.getElementById("linkGmail").href = p.gmail_thread
+    ? "https://mail.google.com/mail/u/0/#drafts/" + p.gmail_thread
+    : "https://mail.google.com/mail/u/0/#drafts";
+
+  const porArea = {};
+  (p.itens || []).forEach(i => porArea[i.area] = (porArea[i.area] || 0) + 1);
+  document.getElementById("stats").innerHTML =
+    `<div class="stat"><b>${(p.itens||[]).length}</b><span>Itens</span></div>` +
+    AREAS.filter(a => porArea[a]).map(a => `<div class="stat"><b>${porArea[a]}</b><span>${a}</span></div>`).join("");
+
+  render();
+}
+
+function montarChips(){
+  const c = document.getElementById("chips");
+  c.innerHTML = ["Todas", ...AREAS].map(a =>
+    `<button class="chip${a === filtroArea ? " on" : ""}" data-a="${a}">${a}</button>`).join("");
+  c.querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    filtroArea = b.dataset.a;
+    c.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x.dataset.a === filtroArea));
+    render();
+  });
+}
+
+function render(){
+  if(!atual) return;
+  const itens = (atual.itens || []).filter(i => {
+    if(filtroArea !== "Todas" && i.area !== filtroArea) return false;
+    if(!termo) return true;
+    return JSON.stringify(i).toLowerCase().includes(termo);
+  });
+  const vazio = document.getElementById("vazio");
+  vazio.hidden = itens.length > 0;
+  vazio.textContent = (atual.itens || []).length === 0
+    ? "Sem fato novo relevante nesta varredura."
+    : "Nenhum item corresponde ao filtro.";
+  document.getElementById("grid").innerHTML = itens.map(cardHTML).join("");
+  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copiar(b));
+}
+
+function cardHTML(i){
+  const link = limparLink(i.link);
+  const tags = (i.hashtags || []).join(" ");
+  return `
+  <article class="card">
+    <div class="card-head">
+      <div class="tagline">
+        <span class="area">${esc(i.area)}</span>
+        <span class="src">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(i.veiculo || "fonte")}</a>` : esc(i.veiculo || "")}</span>
+      </div>
+      <h3>${esc(i.titulo)}</h3>
+    </div>
+    <div class="card-body">
+      <div class="block">
+        <div class="block-label">Resumo</div>
+        <p>${esc(i.resumo)}</p>
+      </div>
+      <div class="block">
+        <div class="block-label">Ângulo</div>
+        <p>${esc(i.angulo)}</p>
+      </div>
+      <div class="block">
+        <div class="block-label">Post pronto
+          <button class="copy" data-copy="${att(i.post)}">Copiar</button>
+        </div>
+        <div class="post">${esc(i.post)}</div>
+      </div>
+      <div class="block">
+        <div class="block-label">Legenda curta
+          <button class="copy" data-copy="${att(i.legenda)}">Copiar</button>
+        </div>
+        <p>${esc(i.legenda)}</p>
+      </div>
+      <div class="block">
+        <div class="block-label">Hashtags
+          <button class="copy" data-copy="${att(tags)}">Copiar</button>
+        </div>
+        <div class="tags">${(i.hashtags || []).map(h => `<span class="tag">${esc(h)}</span>`).join("")}</div>
+      </div>
+    </div>
+  </article>`;
+}
+
+/* ---------- utilidades ---------- */
+function turnoDe(p){ return (p.turno || "manhã").toLowerCase() === "tarde" ? "tarde" : "manhã"; }
+function ordem(p){ return p.data + (turnoDe(p) === "tarde" ? "-1" : "-0"); }
+function rotuloPauta(p){ return dataLonga(p.data) + " — " + turnoDe(p); }
+
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function att(s){ return esc(s).replace(/\n/g, "&#10;"); }
+
+// Rascunhos do Gmail embrulham links em https://www.google.com/url?q=… — desembrulha.
+function limparLink(u){
+  if(!u) return "";
+  const m = /[?&]q=([^&]+)/.exec(u);
+  if(u.includes("google.com/url") && m){ try { return decodeURIComponent(m[1]); } catch(e){ return u; } }
+  return u;
+}
+
+function dataLonga(iso){
+  const [a,m,d] = iso.split("-").map(Number);
+  const dt = new Date(a, m-1, d);
+  const s = dt.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function copiar(btn){
+  const txt = btn.getAttribute("data-copy").replace(/&#10;/g, "\n");
+  const div = document.createElement("textarea");
+  div.innerHTML = txt;
+  const plano = div.value;
+  const ok = () => { btn.textContent = "Copiado!"; btn.classList.add("ok"); setTimeout(() => { btn.textContent = "Copiar"; btn.classList.remove("ok"); }, 1600); };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(plano).then(ok, () => fallback(plano, ok));
+  } else fallback(plano, ok);
+}
+function fallback(txt, ok){
+  const ta = document.createElement("textarea");
+  ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); ok(); } catch(e){}
+  document.body.removeChild(ta);
+}
+
+carregar();
+</script>
+</body>
+</html>

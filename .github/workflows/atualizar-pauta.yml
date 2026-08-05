@@ -1,0 +1,74 @@
+name: Atualizar pauta e publicar
+
+# Roda depois das duas rotinas que criam os rascunhos no Gmail:
+# 07h BRT (10:00 UTC) e 12h BRT (15:00 UTC). A margem de 25 min é folga
+# para a rotina terminar de escrever o rascunho.
+on:
+  schedule:
+    - cron: "25 10 * * *"
+    - cron: "25 15 * * *"
+  workflow_dispatch:        # botão "Run workflow" para rodar na hora
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+
+permissions:
+  contents: write           # para commitar os dados novos
+  pages: write              # para publicar
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ler os rascunhos do Gmail
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/sync_gmail.py
+
+      - name: Guardar as pautas novas no repositório
+        run: |
+          if [ -n "$(git status --porcelain data/)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/
+            git commit -m "Pauta atualizada automaticamente"
+            git push
+          else
+            echo "Nada novo para commitar."
+          fi
+
+      - name: Montar o site
+        run: |
+          python scripts/build_share.py
+          mkdir -p _site
+          cp index.html _site/
+          cp -r data _site/
+          cp dist/dashboard-completo.html _site/dashboard-completo.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  publicar:
+    needs: atualizar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
