@@ -56,8 +56,8 @@ def conectar():
             "  2. GMAIL_USER e a conta onde os rascunhos sao criados (%r);\n"
             "  3. a verificacao em duas etapas esta ligada na conta;\n"
             "  4. o IMAP esta ativo em Gmail > Ver todas as configuracoes > Encaminhamento e POP/IMAP.\n"
-            "  (senha recebida: %d caracteres apos remover espacos)"
-            % (e, usuario, len(senha))
+            "  (a senha recebida %s o formato de senha de app)"
+            % (e, usuario, "TEM" if len(senha) == 16 else "NAO TEM")
         )
     return imap
 
