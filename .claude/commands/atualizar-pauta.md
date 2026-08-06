@@ -3,13 +3,13 @@ description: Força uma atualização da pauta agora, fora do horário automáti
 ---
 
 O caminho normal é automático: o GitHub Actions roda às 07:25 e 12:25 (BRT), lê o Gmail e
-republica o site em https://ascomleonardogiordano-droid.github.io/pauta-leonardo/.
+republica o site em https://pauta-leonardo.pages.dev/.
 Este comando serve só para **forçar uma atualização fora de hora**.
 
 Prefira sempre disparar pelo GitHub, que roda com as credenciais já configuradas:
 
 ```
-gh workflow run "Atualizar pauta e publicar" --repo ascomleonardogiordano-droid/pauta-leonardo
+gh workflow run "Atualizar pauta" --repo ascomleonardogiordano-droid/pauta-leonardo
 ```
 
 Depois acompanhe até terminar e relate ao usuário o que entrou:

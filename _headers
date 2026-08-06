@@ -1,0 +1,17 @@
+# Regras de cache do Cloudflare Pages.
+# O painel muda duas vezes por dia, então cache longo só atrasa a pauta nova
+# chegando em quem abre o link. Um minuto é suficiente para aliviar o servidor
+# sem segurar conteúdo desatualizado — foi exatamente esse o sintoma que
+# tivemos no GitHub Pages, com o site servindo a véspera por dez minutos.
+
+/
+  Cache-Control: public, max-age=60, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=60, must-revalidate
+
+/data/*
+  Cache-Control: public, max-age=60, must-revalidate
+
+/dashboard-completo.html
+  Cache-Control: public, max-age=300, must-revalidate

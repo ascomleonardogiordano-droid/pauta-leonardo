@@ -11,9 +11,11 @@ on:
     - cron: "25 10-21 * * *"   # de hora em hora, 07:25 às 18:25 BRT
   workflow_dispatch:
 
+# Só precisa commitar. Quem publica é o Cloudflare Pages, que observa o
+# repositório e sobe o site a cada commit no main — sem passar pelo GitHub
+# Actions, que foi justamente o componente que se mostrou instável.
 permissions:
   contents: write
-  pages: write
 
 concurrency:
   group: atualizar-pauta
@@ -57,30 +59,4 @@ jobs:
           git pull --rebase origin main
           git push
           echo "mudou=sim" >> $GITHUB_OUTPUT
-
-      # O Pages publica sozinho a cada commit, mas os builds falham de forma
-      # intermitente (o mesmo commit já compilou numa tentativa e errou na
-      # seguinte). Aqui pedimos o build e conferimos, tentando de novo se errar.
-      - name: Garantir que o site publicou
-        if: steps.publicar.outputs.mudou == 'sim'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for tentativa in 1 2 3; do
-            echo "Tentativa $tentativa de build do Pages..."
-            gh api --method POST "repos/${{ github.repository }}/pages/builds" >/dev/null || true
-            for _ in $(seq 1 40); do
-              estado=$(gh api "repos/${{ github.repository }}/pages/builds?per_page=1" --jq '.[0].status')
-              [ "$estado" != "building" ] && [ "$estado" != "queued" ] && break
-              sleep 15
-            done
-            if [ "$estado" = "built" ]; then
-              echo "Site publicado."
-              exit 0
-            fi
-            echo "Build terminou como '$estado'. Tentando de novo."
-            sleep 20
-          done
-          echo "::error::O GitHub Pages não conseguiu publicar após 3 tentativas."
-          echo "Os dados estão commitados e seguros — só a publicação falhou."
-          exit 1
+          echo "Commitado. O Cloudflare Pages publica em cerca de um minuto."

@@ -60,31 +60,46 @@ Em **Settings → Secrets and variables → Actions → New repository secret**,
 Secrets são criptografados: nem o GitHub mostra o valor depois de salvo, e ele não aparece
 nos logs de execução.
 
-### 5. Ligar o GitHub Pages
+### 5. Publicar pelo Cloudflare Pages
 
-Em **Settings → Pages → Build and deployment → Source**, escolha **Deploy from a branch**,
-branch `main`, pasta `/ (root)`.
+1. Crie a conta gratuita em https://dash.cloudflare.com/sign-up (pode entrar com o GitHub).
+2. **Workers & Pages → Create → Pages → Connect to Git**.
+3. Autorize o GitHub e escolha o repositório `pauta-leonardo`.
+4. Configuração do build:
+   - **Production branch:** `main`
+   - **Framework preset:** None
+   - **Build command:** deixe **vazio**
+   - **Build output directory:** `/`
+5. **Save and Deploy**. Em cerca de um minuto o site está em
+   `https://pauta-leonardo.pages.dev`.
 
-> Já tentamos o modo "GitHub Actions" (com `actions/deploy-pages`). A fila de deploy deste
-> repositório travava, com as execuções presas em `deployment_queued` até estourar o tempo.
-> Servir direto do branch é mais simples e não depende dessa fila: o site é estático puro,
-> então o Pages só precisa copiar os arquivos. Se um dia voltar ao modo Actions, lembre que
-> os dois modos se excluem — deixar o `deploy-pages` no workflow com o modo por branch ligado
-> faz toda execução falhar.
+Depois disso o Cloudflare republica sozinho a cada commit no `main`.
+
+> **Por que não o GitHub Pages.** Foi a primeira escolha e falhou nos dois modos.
+> No modo "GitHub Actions", os deploys ficavam presos em `deployment_queued` até estourar o
+> tempo. No modo "por branch", os builds erravam de forma intermitente — o mesmo commit
+> compilou numa tentativa e falhou na seguinte. A causa comum: o Pages, nos dois modos, é
+> executado como workflow do GitHub Actions (`pages-build-deployment`), e a fila do Actions
+> nesta conta não estava alocando runners. O Cloudflare publica por webhook, sem essa
+> dependência.
+
+O arquivo `_headers` na raiz define cache de um minuto para o painel e os dados — assim a
+pauta nova aparece rápido para quem abre o link, em vez de ficar presa no CDN.
 
 ### 6. Testar
 
-Em **Actions → Atualizar pauta e publicar → Run workflow**. Em ~1 minuto o site sobe em
-`https://SEU-USUARIO.github.io/pauta-leonardo/`.
+Em **Actions → Atualizar pauta → Run workflow**. O workflow commita, e o Cloudflare publica
+em cerca de um minuto.
 
 ## Rotina normal
 
-Nada. O GitHub Actions roda sozinho às **07:25 e 12:25** (horário de Brasília), logo depois
-das duas rotinas que criam os rascunhos. Se aparecer pauta nova, ele commita e republica; se
-não aparecer, encerra sem mexer em nada.
+Nada. O workflow roda **de hora em hora, das 07:25 às 18:25** (horário de Brasília). As
+rotinas criam os rascunhos às 07h e 12h; as demais execuções encerram em segundos sem
+commitar, por não encontrarem novidade.
 
-O agendador do GitHub pode atrasar alguns minutos em horário de pico — é normal e não quebra
-nada, o próximo ciclo pega o que faltou.
+Rodar de hora em hora é proposital: o cron do GitHub Actions se mostrou pouco confiável —
+houve dia em que simplesmente não disparou. Com a repetição horária, um horário perdido é
+recuperado no seguinte, e o atraso máximo do painel cai de um dia para uma hora.
 
 Para forçar uma atualização na hora: **Actions → Run workflow**.
 
