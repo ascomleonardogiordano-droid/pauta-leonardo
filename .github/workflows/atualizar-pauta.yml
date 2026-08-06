@@ -18,9 +18,12 @@ permissions:
   pages: write              # para publicar
   id-token: write
 
+# Se duas execuções se sobrepuserem, a mais nova vence. Sem isso, uma execução
+# antiga (que fez checkout antes do commit da pauta nova) pode terminar depois e
+# publicar por cima, deixando o site desatualizado.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   atualizar:
@@ -45,6 +48,9 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data/
             git commit -m "Pauta atualizada automaticamente"
+            # rebase antes do push: se outra execução commitou nesse meio-tempo,
+            # integra em vez de falhar
+            git pull --rebase origin main
             git push
           else
             echo "Nada novo para commitar."
