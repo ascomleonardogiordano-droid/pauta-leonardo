@@ -12,8 +12,13 @@ Rotina 12h ┘              │
        GitHub Actions (07:25 e 12:25 BRT) lê o Gmail por IMAP
                           │
                           ▼
-          data/dias/*.js  →  commit  →  GitHub Pages
+          data/dias/*.js  →  commit no main  →  GitHub Pages publica
 ```
+
+O workflow **só commita**. Quem publica é o próprio Pages, que observa o branch `main`.
+A publicação leva cerca de um minuto depois do commit — e ocasionalmente bem mais, quando a
+fila de build do Pages engasga. Os dados nunca se perdem nesse caso: ficam commitados e o
+site alcança quando a fila drena.
 
 > ⚠️ **O site é público.** Qualquer pessoa com o link vê a pauta, e o repositório é público —
 > todo o histórico de posts sugeridos fica aberto e indexável. Foi uma escolha consciente;
@@ -57,7 +62,15 @@ nos logs de execução.
 
 ### 5. Ligar o GitHub Pages
 
-Em **Settings → Pages → Build and deployment → Source**, escolha **GitHub Actions**.
+Em **Settings → Pages → Build and deployment → Source**, escolha **Deploy from a branch**,
+branch `main`, pasta `/ (root)`.
+
+> Já tentamos o modo "GitHub Actions" (com `actions/deploy-pages`). A fila de deploy deste
+> repositório travava, com as execuções presas em `deployment_queued` até estourar o tempo.
+> Servir direto do branch é mais simples e não depende dessa fila: o site é estático puro,
+> então o Pages só precisa copiar os arquivos. Se um dia voltar ao modo Actions, lembre que
+> os dois modos se excluem — deixar o `deploy-pages` no workflow com o modo por branch ligado
+> faz toda execução falhar.
 
 ### 6. Testar
 
