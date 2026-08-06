@@ -22,7 +22,8 @@ def main():
     html = ler(os.path.join(RAIZ, "index.html"))
 
     manifesto = ler(os.path.join(RAIZ, "data", "manifest.js"))
-    datas = re.findall(r'"(\d{4}-\d{2}-\d{2})"', manifesto)
+    # identificadores: AAAA-MM-DD (manha) e AAAA-MM-DD-tarde (tarde)
+    datas = re.findall(r'"(\d{4}-\d{2}-\d{2}(?:-\w+)?)"', manifesto)
     if not datas:
         sys.exit("Nenhuma data encontrada em data/manifest.js")
 
