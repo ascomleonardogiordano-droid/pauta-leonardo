@@ -2,6 +2,7 @@
 .claude/settings.local.json
 
 # gerados pelo build — não precisam ir para o repositório
+# (dashboard-completo.html na raiz é a exceção: é servido pelo site)
 dist/
 _site/
 __pycache__/

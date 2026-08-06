@@ -1,4 +1,4 @@
-name: Atualizar pauta e publicar
+name: Atualizar pauta
 
 # Roda depois das duas rotinas que criam os rascunhos no Gmail:
 # 07h BRT (10:00 UTC) e 12h BRT (15:00 UTC). A margem de 25 min é folga
@@ -8,22 +8,17 @@ on:
     - cron: "25 10 * * *"
     - cron: "25 15 * * *"
   workflow_dispatch:        # botão "Run workflow" para rodar na hora
-  push:
-    branches: [main]
-    paths-ignore:
-      - "README.md"
 
+# O site é servido pelo GitHub Pages direto do branch main (Settings → Pages →
+# Source: Deploy from a branch). Este workflow só precisa commitar os dados —
+# o Pages publica sozinho a cada commit. Não use actions/deploy-pages aqui: ele
+# exige o modo "GitHub Actions" e conflita com o modo por branch.
 permissions:
-  contents: write           # para commitar os dados novos
-  pages: write              # para publicar
-  id-token: write
+  contents: write
 
-# Se duas execuções se sobrepuserem, a mais nova vence. Sem isso, uma execução
-# antiga (que fez checkout antes do commit da pauta nova) pode terminar depois e
-# publicar por cima, deixando o site desatualizado.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: atualizar-pauta
+  cancel-in-progress: false
 
 jobs:
   atualizar:
@@ -41,40 +36,23 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: python scripts/sync_gmail.py
 
-      - name: Guardar as pautas novas no repositório
-        run: |
-          if [ -n "$(git status --porcelain data/)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/
-            git commit -m "Pauta atualizada automaticamente"
-            # rebase antes do push: se outra execução commitou nesse meio-tempo,
-            # integra em vez de falhar
-            git pull --rebase origin main
-            git push
-          else
-            echo "Nada novo para commitar."
-          fi
-
-      - name: Montar o site
+      - name: Regerar a versão de arquivo único
         run: |
           python scripts/build_share.py
-          mkdir -p _site
-          cp index.html _site/
-          cp -r data _site/
-          cp dist/dashboard-completo.html _site/dashboard-completo.html
+          cp dist/dashboard-completo.html dashboard-completo.html
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  publicar:
-    needs: atualizar
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
+      - name: Publicar as pautas novas
+        run: |
+          if [ -z "$(git status --porcelain data/ dashboard-completo.html)" ]; then
+            echo "Nada novo — nenhum commit necessário."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ dashboard-completo.html
+          git commit -m "Pauta atualizada automaticamente"
+          # rebase antes do push: se outra execução commitou nesse meio-tempo,
+          # integra em vez de falhar
+          git pull --rebase origin main
+          git push
+          echo "Commitado — o GitHub Pages publica em ~1 minuto."
