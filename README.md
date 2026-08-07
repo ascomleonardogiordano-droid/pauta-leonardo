@@ -1,24 +1,23 @@
 # Dashboard — Pauta Diária | Leonardo Giordano
 
+**No ar em https://pauta-leonardo.pages.dev**
+
 Painel da pauta diária de comunicação, alimentado automaticamente pelos rascunhos que as
-rotinas de IA criam no Gmail. Publicado no GitHub Pages e atualizado sozinho, sem depender
-de nenhuma máquina ligada.
+rotinas de IA criam no Gmail. Atualiza sozinho, sem depender de nenhuma máquina ligada.
 
 ```
 Rotina 07h ┐
            ├─► rascunho no Gmail (bloco <!--PAUTA_JSON-->)
 Rotina 12h ┘              │
                           ▼
-       GitHub Actions (07:25 e 12:25 BRT) lê o Gmail por IMAP
+        GitHub Actions lê o Gmail por IMAP (de hora em hora)
                           │
                           ▼
-          data/dias/*.js  →  commit no main  →  GitHub Pages publica
+       data/dias/*.js  →  commit no main  →  Cloudflare Pages publica
 ```
 
-O workflow **só commita**. Quem publica é o próprio Pages, que observa o branch `main`.
-A publicação leva cerca de um minuto depois do commit — e ocasionalmente bem mais, quando a
-fila de build do Pages engasga. Os dados nunca se perdem nesse caso: ficam commitados e o
-site alcança quando a fila drena.
+O workflow **só commita**. Quem publica é o Cloudflare, que observa o branch `main` e sobe o
+site em cerca de um minuto a cada commit.
 
 > ⚠️ **O site é público.** Qualquer pessoa com o link vê a pauta, e o repositório é público —
 > todo o histórico de posts sugeridos fica aberto e indexável. Foi uma escolha consciente;
@@ -136,8 +135,17 @@ Se um dia mudar o formato do JSON nas rotinas, ajuste `scripts/sync_gmail.py` ju
 
 ## Fechando o acesso
 
-O GitHub Pages é sempre público nos planos gratuito e Pro — tornar o repositório privado
-esconde o código e o histórico, mas **não** fecha o site. Para tirar a página do ar:
-**Settings → Pages → Source → None**. A automação continua rodando e guardando as pautas no
+O site do Cloudflare Pages é público — qualquer pessoa com o link vê a pauta. Tornar o
+repositório privado esconde o código e o histórico, mas **não** fecha o site.
+
+Para tirar a página do ar: no painel do Cloudflare, **Workers e Pages → pauta-leonardo →
+Configurações → Excluir projeto**. A automação continua rodando e guardando as pautas no
 repositório; aí você distribui `dashboard-completo.html` (arquivo único, gerado a cada
 execução) para quem precisar.
+
+Para restringir sem tirar do ar, o Cloudflare tem o **Cloudflare Access**, que exige login
+por e-mail antes de abrir a página. É gratuito até 50 usuários e fica em
+**Zero Trust → Access → Applications**.
+
+> O GitHub Pages foi desligado em 07/08/2026, depois que o Cloudflare entrou no ar. O
+> endereço antigo `ascomleonardogiordano-droid.github.io/pauta-leonardo` não responde mais.
