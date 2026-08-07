@@ -41,6 +41,15 @@
     --tranquila:#2e7d5b; --tranquila-bg:#e7f4ee;
     --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px -16px rgba(0,0,0,.25);
   }
+  /* cor de aviso, separada do vermelho de "dia quente" para não confundir
+     urgência jornalística com atraso técnico */
+  :root{ --aviso:#8a6100; --aviso-bg:#fdf5e0; --aviso-linha:#e8d49a; }
+  @media (prefers-color-scheme: dark){
+    :root{ --aviso:#e0b64e; --aviso-bg:#2c2413; --aviso-linha:#4d4021; }
+  }
+  :root[data-theme="dark"]{ --aviso:#e0b64e; --aviso-bg:#2c2413; --aviso-linha:#4d4021; }
+  :root[data-theme="light"]{ --aviso:#8a6100; --aviso-bg:#fdf5e0; --aviso-linha:#e8d49a; }
+
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
@@ -150,6 +159,23 @@
   .tag{font-size:12px;color:var(--ink-3);background:var(--bg);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
   .empty{padding:56px 20px;text-align:center;color:var(--ink-3)}
 
+  /* ---------- faixa de frescor ---------- */
+  .frescor{border-bottom:1px solid var(--line); background:var(--panel)}
+  .frescor.atrasado{background:var(--aviso-bg); border-bottom-color:var(--aviso-linha)}
+  .frescor-inner{
+    max-width:1180px; margin:0 auto; padding:9px 20px;
+    display:flex; align-items:center; gap:8px;
+    font-size:13px; color:var(--ink-3);
+  }
+  .frescor.atrasado .frescor-inner{color:var(--aviso); font-weight:500}
+  .frescor .sinal{
+    width:7px; height:7px; border-radius:50%; flex:none;
+    background:var(--tranquila);
+  }
+  .frescor.atrasado .sinal{background:var(--aviso)}
+  .frescor b{color:var(--ink-2); font-weight:600}
+  .frescor.atrasado b{color:var(--aviso)}
+
   @media (max-width:640px){
     .wrap{padding:0 14px 48px}
     .top-inner{padding:12px 14px;gap:10px}
@@ -179,6 +205,13 @@
     <a class="btn" id="linkGmail" href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noopener">Abrir rascunho no Gmail</a>
   </div>
 </header>
+
+<div class="frescor" id="frescor" hidden>
+  <div class="frescor-inner">
+    <span class="sinal"></span>
+    <span id="frescorTexto"></span>
+  </div>
+</div>
 
 <div class="wrap">
   <section class="hero">
@@ -241,6 +274,87 @@ function iniciar(){
   document.getElementById("busca").oninput = e => { termo = e.target.value.toLowerCase().trim(); render(); };
   montarChips();
   selecionar(PAUTAS[0]);
+  atualizarFrescor();
+  setInterval(atualizarFrescor, 5 * 60 * 1000);
+}
+
+/* ---------- frescor: a pauta esperada já chegou? ---------- */
+// As rotinas rodam 07h (manhã) e 12h (tarde) de Brasília = 10h e 15h UTC.
+// Comparar em UTC deixa o aviso correto mesmo se quem abre estiver em outro fuso.
+const VARREDURAS = [
+  { turno: "manhã", horaUTC: 10, horario: "7h" },
+  { turno: "tarde", horaUTC: 15, horario: "12h" }
+];
+// Folga entre a hora da rotina e o momento em que consideramos atrasado:
+// a rotina leva alguns minutos e o robô que lê o Gmail passa de hora em hora.
+const FOLGA_MS = 90 * 60 * 1000;
+
+function atualizarFrescor(){
+  const faixa = document.getElementById("frescor");
+  const texto = document.getElementById("frescorTexto");
+  if(!PAUTAS.length) return;
+
+  const agora = Date.now();
+  const esperadas = [];
+  for(let recuo = 0; recuo <= 3; recuo++){
+    const dia = new Date(agora - recuo * 864e5);
+    VARREDURAS.forEach(v => {
+      const quando = Date.UTC(dia.getUTCFullYear(), dia.getUTCMonth(), dia.getUTCDate(), v.horaUTC);
+      if(quando + FOLGA_MS <= agora) esperadas.push({ quando: quando, v: v, dia: dia });
+    });
+  }
+  if(!esperadas.length) return;
+  esperadas.sort((a, b) => b.quando - a.quando);
+
+  const alvo = esperadas[0];
+  const ident = isoUTC(alvo.dia) + (alvo.v.turno === "tarde" ? "-tarde" : "");
+  const chegou = PAUTAS.some(p => p.data + (turnoDe(p) === "tarde" ? "-tarde" : "") === ident);
+
+  faixa.hidden = false;
+  if(chegou){
+    // em dia: mostra a pauta mais nova que existe, que pode ser posterior à
+    // última varredura vencida (a da tarde chega antes de virar "cobrável")
+    faixa.classList.remove("atrasado");
+    const nova = PAUTAS[0];
+    texto.innerHTML = "Última varredura: <b>" + diaRelativo(diaDaPauta(nova)) + ", " +
+      turnoDe(nova) + "</b> — " + haQuantoTempo(agora - instanteDaPauta(nova)) + ".";
+  } else {
+    faixa.classList.add("atrasado");
+    texto.innerHTML = "A varredura da <b>" + alvo.v.turno + " de " + diaRelativo(alvo.dia) +
+      "</b> ainda não chegou — era esperada às " + alvo.v.horario +
+      " (Brasília), há " + haQuantoTempo(agora - alvo.quando).replace(/^há /, "") + ".";
+  }
+}
+
+function instanteDaPauta(p){
+  const [a, m, d] = p.data.split("-").map(Number);
+  return Date.UTC(a, m - 1, d, turnoDe(p) === "tarde" ? 15 : 10);
+}
+function diaDaPauta(p){ return new Date(instanteDaPauta(p)); }
+
+function isoUTC(d){
+  return d.getUTCFullYear() + "-" +
+    String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getUTCDate()).padStart(2, "0");
+}
+
+function diaRelativo(d){
+  const hoje = isoUTC(new Date());
+  const ontem = isoUTC(new Date(Date.now() - 864e5));
+  const iso = isoUTC(d);
+  if(iso === hoje) return "hoje";
+  if(iso === ontem) return "ontem";
+  const [a, m, dd] = iso.split("-");
+  return dd + "/" + m;
+}
+
+function haQuantoTempo(ms){
+  const min = Math.round(ms / 6e4);
+  if(min < 60) return "há " + min + " min";
+  const h = Math.round(min / 60);
+  if(h < 24) return "há " + h + (h === 1 ? " hora" : " horas");
+  const d = Math.round(h / 24);
+  return "há " + d + (d === 1 ? " dia" : " dias");
 }
 
 /* ---------- render ---------- */
