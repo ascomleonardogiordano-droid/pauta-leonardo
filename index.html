@@ -71,13 +71,11 @@
   .star{width:26px;height:26px;flex:none;color:var(--accent)}
   .brand h1{font-size:16px;margin:0;letter-spacing:-.01em}
   .brand span{display:block;font-size:12px;color:var(--ink-3);font-weight:400}
-  select, .btn{
+  select{
     font:inherit; color:var(--ink); background:var(--panel);
     border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer;
   }
-  select:hover,.btn:hover{border-color:var(--ink-3)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.primary:hover{filter:brightness(1.08)}
+  select:hover{border-color:var(--ink-3)}
 
   /* ---------- hero ---------- */
   .hero{padding:28px 0 8px}
@@ -202,7 +200,6 @@
       </div>
     </div>
     <select id="seletorDia" aria-label="Escolher dia"></select>
-    <a class="btn" id="linkGmail" href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noopener">Abrir rascunho no Gmail</a>
   </div>
 </header>
 
@@ -370,9 +367,6 @@ function selecionar(p){
   pill.className = "pill " + temp;
   document.getElementById("heroTempTxt").textContent = temp === "quente" ? "Dia quente" : "Dia tranquilo";
   document.getElementById("heroResumo").textContent = p.resumo_dia || "";
-  document.getElementById("linkGmail").href = p.gmail_thread
-    ? "https://mail.google.com/mail/u/0/#drafts/" + p.gmail_thread
-    : "https://mail.google.com/mail/u/0/#drafts";
 
   const porArea = {};
   (p.itens || []).forEach(i => porArea[i.area] = (porArea[i.area] || 0) + 1);
