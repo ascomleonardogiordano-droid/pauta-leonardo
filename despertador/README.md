@@ -59,7 +59,10 @@ Fine-grained tokens**:
 
 - **Repository access:** só o `pauta-leonardo`
 - **Permissions → Actions:** *Read and write* (é o mínimo para disparar um workflow)
-- **Expiration:** anote a data. Quando vencer, a automação para até o token ser trocado.
+- **Expiration:** o token em uso vence em **09/08/2027**. Quando vencer, a automação para de
+  disparar — o sintoma é a faixa âmbar no topo do painel, avisando que a varredura não chegou.
+  Para trocar: gere um token novo com as mesmas permissões e substitua a variável secreta
+  `GITHUB_TOKEN` no Worker. Nada mais precisa mudar.
 
 Guarde o token apenas como variável **secreta** do Worker. Depois de salvo, o Cloudflare
 não mostra mais o valor.
