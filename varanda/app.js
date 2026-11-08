@@ -190,11 +190,14 @@
   function autorLink(u) { return '<a class="autor" href="#perfil-' + esc(u) + '">' + av(u) + esc(S.users[u].nome) + '</a>'; }
   function fim(msg) { return '<div class="fim"><strong>Por hoje é só.</strong>' + esc(msg || 'Você viu tudo desta página. Respire, tome uma água, volte quando quiser.') + '</div>'; }
 
-  function opcoesVis(sel) {
+  function chipsVis() {
     var meus = S.grupos.filter(function (g) { return membro(g.id, S.eu); });
-    var o = '<option value="publico">Para qualquer pessoa na Varanda</option><option value="privado">Apenas para mim</option>';
-    meus.forEach(function (g) { o += '<option value="grupo:' + g.id + '">Para o círculo: ' + esc(g.nome) + '</option>'; });
-    return o;
+    var itens = [['privado', 'Apenas para mim', 'var(--pri)']];
+    meus.forEach(function (g) { itens.push(['grupo:' + g.id, 'Círculo: ' + g.nome, 'var(--grp)']); });
+    itens.push(['publico', 'Qualquer pessoa', 'var(--pub)']);
+    return '<fieldset class="chips"><legend>Quem pode ler?</legend>' + itens.map(function (x, i) {
+      return '<label class="chip"><input type="radio" name="vis" value="' + esc(x[0]) + '"' + (i === 0 ? ' checked' : '') + '><span style="--dot:' + x[2] + '">' + esc(x[1]) + '</span></label>';
+    }).join('') + '</fieldset>';
   }
 
   function cartao(p, opts) {
@@ -224,12 +227,18 @@
   function compositor(rotulo, visPadrao) {
     return '<form class="card nota" id="novo"><h2>' + esc(rotulo) + '</h2>' +
       '<label class="campo">O que você quer guardar?<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() +
-      '<label class="campo">Quem pode ler?<select name="vis">' + opcoesVis() + '</select></label>' +
+      chipsVis() +
       '<div id="extra"></div>' +
-      '<button class="pri">Guardar ou enviar</button><p class="meta" id="hint">A escolha de quem pode ler vale só para esta nota.</p></form>';
+      '<button class="pri">Guardar ou enviar</button><p class="meta" id="hint">Por padrão, só você lê. Abrir para mais gente é uma escolha sua, a cada nota.</p></form>';
   }
 
   /* ---------- telas ---------- */
+  var ICONES = {
+    praca: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
+    grupos: '<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/>',
+    diario: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><path d="M8 16h8"/>',
+    cartinha: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 8l9 6 9-6"/>'
+  };
   var ROTAS = [
     ['praca', 'Praça'], ['grupos', 'Círculos'], ['diario', 'Diário'], ['cartinha', 'Cartinha'],
     ['ritmo', 'Ritmo'], ['dados', 'Meus dados'], ['porque', 'Por que é assim']
@@ -286,7 +295,7 @@
       '<label class="campo">Título<input type="text" name="titulo" maxlength="80" required></label>' +
       '<label class="campo">Ano (ou época)<input type="text" name="ano" maxlength="9" placeholder="ex.: 2004" required></label>' +
       '<label class="campo">A história<textarea name="texto" maxlength="1500" required></textarea></label>' + campoMidia() +
-      '<label class="campo">Quem pode ler?<select name="vis">' + opcoesVis() + '</select></label>' +
+      chipsVis() +
       '<button class="pri">Guardar</button></form>';
     if (!minhas.length) h += '<p class="vazio">Seu diário ainda está em branco.</p>';
     minhas.forEach(function (p) { h += cartao(p); });
@@ -391,6 +400,9 @@
       '<tr><td>Recompensa variável</td><td>Sem curtidas públicas; abraço privado</td><td>Qualquer publicação</td></tr>' +
       '<tr><td>Extração de dados comportamentais</td><td>Nenhum rastreio; exportar e apagar tudo</td><td>Meus dados</td></tr>' +
       '<tr><td>(não consta na lista do projeto) vídeo que toca sozinho e engata o próximo</td><td>Proposta minha: nada toca sozinho e não existe “próximo vídeo”</td><td>Qualquer publicação com mídia</td></tr><tr><td>Hipervisibilidade sem escuta</td><td>Círculos pequenos; escolha de público por publicação</td><td>Círculos, Diário</td></tr></table></div>' +
+      '<div class="card"><h2>4. A aparência também é decisão</h2><p><strong>Proposta (minha):</strong> o visual noturno se inspira na estética dos anos 80 e 90, mas sem neon, sem brilho, sem adesivos e sem animação. Cor aqui identifica seção; não chama para o clique. Não há vermelho de alerta, nem selo de novidade, nem contador.</p>' +
+      '<p><strong>Proposta (minha):</strong> toda nota nasce como “apenas para mim”. Abrir para um círculo ou para todos é um gesto deliberado. A hipótese é que o padrão protetor reduz exposição sem que a pessoa precise se proteger sozinha.</p>' +
+      '<p class="meta">Não testei se uma aparência mais calma muda o tempo de uso ou a sensação de bem-estar. É hipótese de design a verificar.</p></div>' +
       '<div class="card"><h2>Limites e o que ainda não sabemos</h2><ul>' +
       '<li>A base neurocientífica do projeto trata de <strong>adolescentes</strong>. O público 27+ da Varanda é uma decisão de produto (nostalgia, memória, comunidade), não uma conclusão da neurociência.</li>' +
       '<li>Este protótipo <strong>não prova</strong> que o desenho reduz uso compulsivo. É uma hipótese de design a testar.</li>' +
@@ -418,7 +430,7 @@
     else h = telaPraca();
     $('#app').innerHTML = h;
     var ativo = r.nome === 'grupo' ? 'grupos' : r.nome;
-    var ab = function (x) { return '<a href="#' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + x[1] + '</a>'; };
+    var ab = function (x) { return '<a href="#' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + (ICONES[x[0]] ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONES[x[0]] + '</svg>' : '') + '<span>' + x[1] + '</span></a>'; };
     $('#nav').innerHTML = ROTAS.slice(0, 4).map(ab).join('');
     $('#nav2').innerHTML = ROTAS.slice(4).map(ab).join('') +
       '<a href="#perfil-' + esc(S.eu) + '"' + (r.nome === 'perfil' ? ' class="on" aria-current="page"' : '') + '>Meu perfil</a>';
@@ -530,6 +542,14 @@
     var i = e.target.getAttribute && e.target.getAttribute('data-alt');
     if (i !== null && i !== undefined && anexos[+i]) anexos[+i].alt = e.target.value;
   });
+  function aplicarVisual(v) {
+    if (v === 'terracota') document.documentElement.setAttribute('data-visual', 'terracota');
+    else document.documentElement.removeAttribute('data-visual');
+    var sel = $('#visual'); if (sel) sel.value = v === 'terracota' ? 'terracota' : 'noite';
+  }
+  $('#visual').addEventListener('change', function (e) { aplicarVisual(e.target.value); try { localStorage.setItem('varanda.visual', e.target.value); } catch (x) { /* sem storage */ } });
+  var visualSalvo = null; try { visualSalvo = localStorage.getItem('varanda.visual'); } catch (x) { /* ok */ }
+  aplicarVisual(visualSalvo === 'terracota' ? 'terracota' : 'noite');
   $('#quem').addEventListener('change', function (e) { S.eu = e.target.value; slideIdx = 0; pagina = 1; pend = null; anexos = []; save(); render(); });
   window.addEventListener('hashchange', function () { slideIdx = 0; pend = null; anexos = []; render(); window.scrollTo(0, 0); });
 

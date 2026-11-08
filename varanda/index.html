@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Varanda</title>
 <meta name="description" content="Protótipo de rede social calma, em círculos, sem feed infinito e sem notificação por padrão.">
+<script>try{var v=localStorage.getItem("varanda.visual");if(v)document.documentElement.setAttribute("data-visual",v)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Lora:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Lora:wght@400;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,11 +16,12 @@
 <header class="marca">
   <a class="logo" href="#praca" aria-label="Varanda, início">
     <svg viewBox="0 0 64 64" aria-hidden="true">
-      <ellipse cx="32" cy="14" rx="15" ry="4.5" fill="#8a3a24"/>
-      <path d="M19 14c0 5-8 10-8 24 0 13 9 20 21 20s21-7 21-20c0-14-8-19-8-24z" fill="#c0613f"/>
-      <path d="M19 14c0 5-8 10-8 24 0 9 4 15 10 18-4-4-6-10-5-18 1-9 5-12 5-18z" fill="#d98466" opacity=".7"/>
-      <ellipse cx="32" cy="14" rx="12" ry="3" fill="#4d1a10"/>
-      <path d="M13 32q19 9 38 0" fill="none" stroke="#8a3a24" stroke-width="2.2" stroke-linecap="round"/>
+      <ellipse class="v-rim" cx="32" cy="14" rx="15" ry="4.5"/>
+      <path class="v-body" d="M19 14c0 5-8 10-8 24 0 13 9 20 21 20s21-7 21-20c0-14-8-19-8-24z"/>
+      <path class="v-hi" d="M19 14c0 5-8 10-8 24 0 9 4 15 10 18-4-4-6-10-5-18 1-9 5-12 5-18z" opacity=".7"/>
+      <ellipse class="v-in" cx="32" cy="14" rx="12" ry="3"/>
+      <path class="v-band" d="M13 32q19 9 38 0"/>
+      <path class="v-crack" d="M33 22l-5 8 6 5-4 9"/>
     </svg>
     <span>Varanda</span>
   </a>
@@ -27,9 +29,14 @@
 <div class="banda">
   <div class="banda-in">
     <div class="sec"><span id="nav2" class="linha" style="gap:4px 14px"></span>
-      <label class="demo" for="quem">Entrar como
-        <select id="quem"></select>
-      </label>
+      <div class="demos">
+        <label class="demo" for="visual">Visual
+          <select id="visual"><option value="noite">Noite retrô</option><option value="terracota">Terracota</option></select>
+        </label>
+        <label class="demo" for="quem">Entrar como
+          <select id="quem"></select>
+        </label>
+      </div>
     </div>
     <nav id="nav" class="abas" aria-label="Principal"></nav>
   </div>
