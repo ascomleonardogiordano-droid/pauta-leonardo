@@ -57,6 +57,7 @@
   }
 
   var S;
+  var slideIdx = 0, pagina = 1, pend = null, mostrarJson = false, toastT = null;
   function load() {
     try { var r = localStorage.getItem(KEY); if (r) { S = JSON.parse(r); return; } } catch (e) { /* sem storage: segue em memória */ }
     S = seed();
@@ -88,7 +89,7 @@
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   }
   function av(u) { var p = S.users[u]; return '<span class="avatar" style="background:' + esc(p.cor) + '" aria-hidden="true">' + esc(p.ico) + '</span>'; }
-  function autorLink(u) { return '<a class="autor" href="#/perfil/' + esc(u) + '">' + av(u) + esc(S.users[u].nome) + '</a>'; }
+  function autorLink(u) { return '<a class="autor" href="#perfil-' + esc(u) + '">' + av(u) + esc(S.users[u].nome) + '</a>'; }
   function fim(msg) { return '<div class="fim"><strong>Por hoje é só.</strong>' + esc(msg || 'Você viu tudo desta página. Respire, tome uma água, volte quando quiser.') + '</div>'; }
 
   function opcoesVis(sel) {
@@ -109,7 +110,10 @@
     h += '<div class="linha">';
     if (!mine) h += '<button data-abraco="' + esc(p.id) + '" aria-pressed="' + ab + '" title="Só quem escreveu vê que você mandou.">🤗 ' + (ab ? 'Abraço enviado' : 'Mandar um abraço') + '</button>';
     else h += '<span class="meta" style="margin:0">' + (p.abracos.length ? '🤗 ' + p.abracos.length + ' abraço(s) — só você vê esse número' : 'Nenhum abraço ainda') + '</span>';
-    if (mine && !opts.semApagar) h += '<button class="link" data-apagar="' + esc(p.id) + '">apagar</button>';
+    if (mine && !opts.semApagar) {
+      if (pend === 'del:' + p.id) h += '<span class="meta" style="margin:0">Apagar de vez?</span> <button data-apagar-sim="' + esc(p.id) + '">Sim, apagar</button> <button class="link" data-nao="1">Não</button>';
+      else h += '<button class="link" data-apagar="' + esc(p.id) + '">apagar</button>';
+    }
     h += '</div>';
     p.respostas.forEach(function (r) {
       h += '<div class="resp"><strong>' + esc(S.users[r.autor].nome) + '</strong> <small>' + quando(r.data) + '</small><br>' + esc(r.texto) + '</div>';
@@ -132,21 +136,24 @@
     ['ritmo', 'Ritmo'], ['dados', 'Meus dados'], ['porque', 'Por que é assim']
   ];
 
-  function telaPraca(q) {
+  function telaPraca() {
     var por = S.ritmo.porPagina;
     var todos = S.posts.filter(function (p) { return p.tipo === 'mural' && pode(p, S.eu); })
       .sort(function (a, b) { return b.data.localeCompare(a.data); });
     var pags = Math.max(1, Math.ceil(todos.length / por));
-    var pg = Math.min(pags, Math.max(1, parseInt(q.p, 10) || 1));
-    var fatia = todos.slice((pg - 1) * por, pg * por);
-    var h = '<h1>Praça</h1><p class="sub">Em ordem cronológica, sem algoritmo escolhendo por você. Aqui tem começo, meio e fim.</p>';
+    pagina = Math.min(pags, Math.max(1, pagina));
+    var fatia = todos.slice((pagina - 1) * por, pagina * por);
+    var h = '<h1>Praça</h1><p class="sub">Em ordem cronológica, sem algoritmo escolhendo por você. Arraste para o lado: cada passo é uma pessoa, e o caminho tem fim.</p>';
     h += compositor('Escrever na praça');
-    fatia.forEach(function (p) { h += cartao(p); });
-    h += '<div class="pag"><span>' +
-      (pg > 1 ? '<a class="btn" href="#/praca?p=' + (pg - 1) + '">← Mais novas</a>' : '') + '</span><span class="meta" style="margin:0">Página ' + pg + ' de ' + pags + '</span><span>' +
-      (pg < pags ? '<a class="btn" href="#/praca?p=' + (pg + 1) + '">Mais antigas →</a>' : '') + '</span></div>';
-    h += pg === pags ? fim('Você chegou ao começo da conversa. Não existe “carregar mais” nesta casa.') : fim();
-    return h;
+    h += '<section class="carrossel" aria-roledescription="carrossel" aria-label="Publicações da praça"><div class="ctrl"><button data-slide="-1" aria-label="Publicação anterior">←</button><span id="pos" class="meta" aria-live="polite">1 de ' + (fatia.length + 1) + '</span><button data-slide="1" aria-label="Próxima publicação">→</button></div>';
+    h += '<div class="trilho" id="trilho" tabindex="0" role="group" aria-label="Passe para o lado para ver mais">';
+    fatia.forEach(function (p) { h += '<div class="slide">' + cartao(p) + '</div>'; });
+    h += '<div class="slide">' + (pagina === pags ? fim('Você chegou ao começo da conversa. Não existe “carregar mais” nesta casa.') : fim()) +
+      '<div class="linha" style="justify-content:center">' +
+      (pagina > 1 ? '<button data-pag="-1">← Voltar às mais novas</button>' : '') +
+      (pagina < pags ? '<button class="pri" data-pag="1">Ver as mais antigas →</button>' : '') + '</div>' +
+      '<p class="meta" style="text-align:center">Página ' + pagina + ' de ' + pags + '</p></div>';
+    return h + '</div></section>';
   }
 
   function telaGrupos() {
@@ -155,7 +162,7 @@
       var dentro = membro(g.id, S.eu);
       h += '<div class="card"><h2>' + esc(g.nome) + '</h2><p>' + esc(g.desc) + '</p><p class="meta">' + g.membros.length + ' pessoas: ' +
         g.membros.map(function (m) { return esc(S.users[m].nome); }).join(', ') + '</p>' +
-        (dentro ? '<a class="btn pri" href="#/grupo/' + esc(g.id) + '">Abrir círculo</a>' : '<button data-entrar="' + esc(g.id) + '">Pedir para entrar (demo: entra direto)</button>') + '</div>';
+        (dentro ? '<a class="btn pri" href="#grupo-' + esc(g.id) + '">Abrir círculo</a>' : '<button data-entrar="' + esc(g.id) + '">Pedir para entrar (demo: entra direto)</button>') + '</div>';
     });
     h += '</div><form class="card" id="novoGrupo"><h2>Criar um círculo</h2><label class="campo">Nome<input type="text" name="nome" maxlength="60" required></label><label class="campo">Descrição<input type="text" name="desc" maxlength="140"></label><button class="pri">Criar</button></form>';
     return h;
@@ -229,7 +236,7 @@
     var h = '<h1>Cartinha do dia</h1><p class="sub">Tudo o que aconteceu desde a sua última passada, reunido num só lugar, uma vez. É o contrário de um alerta a cada curtida.</p><div class="card">';
     h += itens.length ? '<ul>' + itens.map(function (i) { return '<li>' + esc(i.t) + ' <span class="meta">' + quando(i.d) + '</span></li>'; }).join('') + '</ul>' : '<p class="vazio">Nada novo. Você está em dia.</p>';
     h += '<button class="pri" data-lido="1">Marcar como lido</button></div>';
-    h += '<div class="card suave"><strong>Seu ritmo atual:</strong> ' + esc(textoRitmo()) + ' <a href="#/ritmo">mudar</a></div>';
+    h += '<div class="card suave"><strong>Seu ritmo atual:</strong> ' + esc(textoRitmo()) + ' <a href="#ritmo">mudar</a></div>';
     return h + fim('Isso é tudo. Nenhuma outra coisa está esperando por você aqui.');
   }
 
@@ -263,7 +270,9 @@
       '<div class="card"><h2>O que este protótipo guarda</h2><p>Só o que você escreve aqui, e <strong>apenas neste navegador</strong>. Nenhum servidor recebe nada.</p></div>' +
       '<div class="card"><h2>O que a Varanda não coleta</h2><table><tr><th>Dado</th><th>Coletado?</th></tr>' +
       '<tr><td>Tempo de tela</td><td>Não</td></tr><tr><td>Cliques, rolagem, hesitação</td><td>Não</td></tr><tr><td>Lista de contatos</td><td>Não</td></tr><tr><td>Localização</td><td>Não</td></tr><tr><td>Perfil para anúncios</td><td>Não, não há anúncios</td></tr></table></div>' +
-      '<div class="card"><h2>Levar ou apagar</h2><p class="linha"><button data-exportar="1">Baixar tudo (JSON)</button><button data-resetar="1">Apagar tudo e recomeçar</button></p></div>' +
+      '<div class="card"><h2>Levar ou apagar</h2><p class="linha"><button data-exportar="1">' + (mostrarJson ? 'Esconder meus dados' : 'Ver meus dados (JSON)') + '</button>' +
+      (pend === 'reset' ? '<span class="meta" style="margin:0">Apagar tudo?</span><button data-resetar-sim="1">Sim, apagar tudo</button><button class="link" data-nao="1">Não</button>' : '<button data-resetar="1">Apagar tudo e recomeçar</button>') + '</p>' +
+      (mostrarJson ? '<label class="campo" for="json">Seus dados, para copiar e guardar</label><textarea id="json" readonly rows="8"></textarea><button data-copiar="1">Copiar</button>' : '') + '</div>' +
       '<div class="aviso"><strong>Limite honesto:</strong> numa versão com servidor, “não coletar” precisa ser auditável (código aberto, relatório de transparência). Hoje isso é só intenção de projeto.</div>';
   }
 
@@ -292,16 +301,13 @@
 
   /* ---------- roteador ---------- */
   function rota() {
-    var raw = (location.hash || '#/praca').slice(2).split('?');
-    var partes = raw[0].split('/');
-    var q = {};
-    (raw[1] || '').split('&').forEach(function (kv) { var a = kv.split('='); if (a[0]) q[a[0]] = decodeURIComponent(a[1] || ''); });
-    return { nome: partes[0] || 'praca', arg: partes[1], q: q };
+    var h = (location.hash || '#praca').slice(1), k = h.indexOf('-');
+    return { nome: (k < 0 ? h : h.slice(0, k)) || 'praca', arg: k < 0 ? undefined : h.slice(k + 1) };
   }
 
   function render() {
     var r = rota(), h = '';
-    if (r.nome === 'praca') h = telaPraca(r.q);
+    if (r.nome === 'praca') h = telaPraca();
     else if (r.nome === 'grupos') h = telaGrupos();
     else if (r.nome === 'grupo') h = telaGrupo(r.arg);
     else if (r.nome === 'diario') h = telaDiario();
@@ -310,18 +316,44 @@
     else if (r.nome === 'ritmo') h = telaRitmo();
     else if (r.nome === 'dados') h = telaDados();
     else if (r.nome === 'porque') h = telaPorque();
-    else h = telaPraca(r.q);
+    else h = telaPraca();
     $('#app').innerHTML = h;
     var ativo = r.nome === 'grupo' ? 'grupos' : r.nome;
-    $('#nav').innerHTML = ROTAS.map(function (x) { return '<a href="#/' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + x[1] + '</a>'; }).join('') +
-      '<a href="#/perfil/' + esc(S.eu) + '"' + (r.nome === 'perfil' ? ' class="on"' : '') + '>Meu perfil</a>';
+    $('#nav').innerHTML = ROTAS.map(function (x) { return '<a href="#' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + x[1] + '</a>'; }).join('') +
+      '<a href="#perfil-' + esc(S.eu) + '"' + (r.nome === 'perfil' ? ' class="on"' : '') + '>Meu perfil</a>';
     $('#quem').innerHTML = Object.keys(S.users).map(function (k) { return '<option value="' + k + '"' + (k === S.eu ? ' selected' : '') + '>' + esc(S.users[k].nome) + '</option>'; }).join('');
-    ligarCompositor();
+    if (r.nome === 'dados' && mostrarJson) { var ta = $('#json'); if (ta) ta.value = JSON.stringify(S, null, 2); }
+    if (r.nome === 'praca') ligarCarrossel();
   }
 
   /* visibilidade "círculo": o select já traz grupo:ID */
   function lerVis(v) { return v.indexOf('grupo:') === 0 ? { vis: 'grupo', grupo: v.slice(6) } : { vis: v }; }
-  function ligarCompositor() { /* ganchos por delegação, ver abaixo */ }
+  function slides() { var t = $('#trilho'); return t ? [].slice.call(t.children) : []; }
+  function idxAtual() {
+    var t = $('#trilho'), best = 0, d = 1e9;
+    slides().forEach(function (c, i) { var x = Math.abs(c.offsetLeft - t.offsetLeft - t.scrollLeft); if (x < d) { d = x; best = i; } });
+    return best;
+  }
+  function irPara(i, suave) {
+    var t = $('#trilho'), c = slides()[i]; if (!t || !c) return;
+    var quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    t.scrollTo({ left: c.offsetLeft - t.offsetLeft - 2, behavior: suave && !quieto ? 'smooth' : 'auto' });
+  }
+  function ligarCarrossel() {
+    var t = $('#trilho'); if (!t) return;
+    var n = slides().length; slideIdx = Math.min(slideIdx, n - 1);
+    irPara(slideIdx, false);
+    $('#pos').textContent = (slideIdx + 1) + ' de ' + n;
+    var tick = null;
+    t.addEventListener('scroll', function () {
+      if (tick) return;
+      tick = requestAnimationFrame(function () { tick = null; slideIdx = idxAtual(); var p = $('#pos'); if (p) p.textContent = (slideIdx + 1) + ' de ' + n; });
+    });
+  }
+  function avisar(msg) {
+    var t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 3500);
+  }
 
   function novoPost(base, f) {
     var v = lerVis(f.vis);
@@ -353,7 +385,7 @@
     else if (f.hasAttribute('data-dep')) {
       var dt = String(d.get('t')).trim(); if (!dt) return;
       S.depoimentos.push({ id: uid(), para: f.getAttribute('data-dep'), de: S.eu, texto: dt, aprovado: false, data: new Date().toISOString() });
-      save(); render(); alert('Enviado. O depoimento só aparece depois que a pessoa aprovar.');
+      save(); render(); avisar('Enviado. O depoimento só aparece depois que a pessoa aprovar.');
     }
   });
 
@@ -364,22 +396,26 @@
       var p = S.posts.filter(function (x) { return x.id === a; })[0], i = p.abracos.indexOf(S.eu);
       if (i >= 0) p.abracos.splice(i, 1); else p.abracos.push(S.eu);
       save(); render();
-    } else if ((a = b.getAttribute('data-apagar'))) {
-      if (confirm('Apagar esta publicação?')) { S.posts = S.posts.filter(function (x) { return x.id !== a || x.autor !== S.eu; }); save(); render(); }
-    } else if ((a = b.getAttribute('data-entrar'))) { grupo(a).membros.push(S.eu); save(); render(); }
+    } else if ((a = b.getAttribute('data-apagar'))) { pend = 'del:' + a; render(); }
+    else if ((a = b.getAttribute('data-apagar-sim'))) { S.posts = S.posts.filter(function (x) { return x.id !== a || x.autor !== S.eu; }); pend = null; save(); render(); }
+    else if (b.hasAttribute('data-nao')) { pend = null; render(); }
+    else if ((a = b.getAttribute('data-slide'))) { var al = Math.max(0, Math.min(slides().length - 1, idxAtual() + parseInt(a, 10))); irPara(al, true); }
+    else if ((a = b.getAttribute('data-pag'))) { pagina += parseInt(a, 10); slideIdx = 0; render(); window.scrollTo(0, 0); }
+    else if ((a = b.getAttribute('data-entrar'))) { grupo(a).membros.push(S.eu); save(); render(); }
     else if ((a = b.getAttribute('data-aprovar'))) { S.depoimentos.forEach(function (x) { if (x.id === a && x.para === S.eu) x.aprovado = true; }); save(); render(); }
     else if ((a = b.getAttribute('data-recusar'))) { S.depoimentos = S.depoimentos.filter(function (x) { return !(x.id === a && x.para === S.eu); }); save(); render(); }
     else if (b.hasAttribute('data-lido')) { S.lastVisit = new Date().toISOString(); save(); render(); }
-    else if (b.hasAttribute('data-exportar')) {
-      var blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
-      var l = document.createElement('a'); l.href = URL.createObjectURL(blob); l.download = 'varanda-meus-dados.json'; l.click();
-    } else if (b.hasAttribute('data-resetar')) {
-      if (confirm('Apagar tudo e voltar à demonstração?')) { try { localStorage.removeItem(KEY); } catch (x) { /* ok */ } S = seed(); save(); location.hash = '#/praca'; render(); }
+    else if (b.hasAttribute('data-exportar')) { mostrarJson = !mostrarJson; render(); }
+    else if (b.hasAttribute('data-copiar')) {
+      var ta = $('#json'), ok = function () { avisar('Copiado.'); }, falha = function () { ta.focus(); ta.select(); avisar('Selecionado. Use copiar do seu aparelho.'); };
+      try { navigator.clipboard.writeText(ta.value).then(ok, falha); } catch (x) { falha(); }
     }
+    else if (b.hasAttribute('data-resetar')) { pend = 'reset'; render(); }
+    else if (b.hasAttribute('data-resetar-sim')) { try { localStorage.removeItem(KEY); } catch (x) { /* ok */ } S = seed(); pend = null; mostrarJson = false; save(); location.hash = '#praca'; render(); }
   });
 
-  $('#quem').addEventListener('change', function (e) { S.eu = e.target.value; save(); render(); });
-  window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
+  $('#quem').addEventListener('change', function (e) { S.eu = e.target.value; slideIdx = 0; pagina = 1; pend = null; save(); render(); });
+  window.addEventListener('hashchange', function () { slideIdx = 0; pend = null; render(); window.scrollTo(0, 0); });
 
   load();
   render();
