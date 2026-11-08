@@ -66,9 +66,9 @@
   }
   function tam(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
   function campoMidia() {
-    return '<div class="midia-campo"><label class="btn" for="arq">📷 Foto ou vídeo</label>' +
+    return '<div class="midia-campo"><label class="btn" for="arq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>Anexar</label>' +
       '<input class="sr" type="file" id="arq" accept="image/*,video/*" multiple>' +
-      '<span class="meta">Até ' + MAX_ANEXOS + ' arquivos; vídeo até 25 MB. Nada começa a tocar sozinho.</span>' +
+      '<span class="meta">Foto ou vídeo · até ' + MAX_ANEXOS + ' arquivos; vídeo até 25 MB. Nada toca sozinho.</span>' +
       '<div id="previas">' + htmlPrevias() + '</div></div>';
   }
   function htmlPrevias() {
@@ -192,8 +192,8 @@
 
   function opcoesVis(sel) {
     var meus = S.grupos.filter(function (g) { return membro(g.id, S.eu); });
-    var o = '<option value="publico">Público (qualquer pessoa na Varanda)</option><option value="privado">Só eu</option>';
-    meus.forEach(function (g) { o += '<option value="grupo:' + g.id + '">Círculo: ' + esc(g.nome) + '</option>'; });
+    var o = '<option value="publico">Para qualquer pessoa na Varanda</option><option value="privado">Apenas para mim</option>';
+    meus.forEach(function (g) { o += '<option value="grupo:' + g.id + '">Para o círculo: ' + esc(g.nome) + '</option>'; });
     return o;
   }
 
@@ -222,16 +222,16 @@
   }
 
   function compositor(rotulo, visPadrao) {
-    return '<form class="card" id="novo"><h2>' + esc(rotulo) + '</h2>' +
-      '<label class="campo">O que você quer guardar ou compartilhar?<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() +
-      '<label class="campo">Quem pode ver?<select name="vis">' + opcoesVis() + '</select></label>' +
+    return '<form class="card nota" id="novo"><h2>' + esc(rotulo) + '</h2>' +
+      '<label class="campo">O que você quer guardar?<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() +
+      '<label class="campo">Quem pode ler?<select name="vis">' + opcoesVis() + '</select></label>' +
       '<div id="extra"></div>' +
-      '<button class="pri">Publicar</button> <span class="meta" id="hint">A escolha de visibilidade vale só para esta publicação.</span></form>';
+      '<button class="pri">Guardar ou enviar</button><p class="meta" id="hint">A escolha de quem pode ler vale só para esta nota.</p></form>';
   }
 
   /* ---------- telas ---------- */
   var ROTAS = [
-    ['praca', 'Praça'], ['grupos', 'Círculos'], ['diario', 'Meu diário'], ['cartinha', 'Cartinha do dia'],
+    ['praca', 'Praça'], ['grupos', 'Círculos'], ['diario', 'Diário'], ['cartinha', 'Cartinha'],
     ['ritmo', 'Ritmo'], ['dados', 'Meus dados'], ['porque', 'Por que é assim']
   ];
 
@@ -243,7 +243,7 @@
     pagina = Math.min(pags, Math.max(1, pagina));
     var fatia = todos.slice((pagina - 1) * por, pagina * por);
     var h = '<h1>Praça</h1><p class="sub">Em ordem cronológica, sem algoritmo escolhendo por você. Arraste para o lado: cada passo é uma pessoa, e o caminho tem fim.</p>';
-    h += compositor('Escrever na praça');
+    h += compositor('Uma nota para guardar ou dividir');
     h += '<section class="carrossel" aria-roledescription="carrossel" aria-label="Publicações da praça"><div class="ctrl"><button data-slide="-1" aria-label="Publicação anterior">←</button><span id="pos" class="meta" aria-live="polite">1 de ' + (fatia.length + 1) + '</span><button data-slide="1" aria-label="Próxima publicação">→</button></div>';
     h += '<div class="trilho" id="trilho" tabindex="0" role="group" aria-label="Passe para o lado para ver mais">';
     fatia.forEach(function (p) { h += '<div class="slide">' + cartao(p) + '</div>'; });
@@ -263,7 +263,7 @@
         g.membros.map(function (m) { return esc(S.users[m].nome); }).join(', ') + '</p>' +
         (dentro ? '<a class="btn pri" href="#grupo-' + esc(g.id) + '">Abrir círculo</a>' : '<button data-entrar="' + esc(g.id) + '">Pedir para entrar (demo: entra direto)</button>') + '</div>';
     });
-    h += '</div><form class="card" id="novoGrupo"><h2>Criar um círculo</h2><label class="campo">Nome<input type="text" name="nome" maxlength="60" required></label><label class="campo">Descrição<input type="text" name="desc" maxlength="140"></label><button class="pri">Criar</button></form>';
+    h += '</div><form class="card nota" id="novoGrupo"><h2>Criar um círculo</h2><label class="campo">Nome<input type="text" name="nome" maxlength="60" required></label><label class="campo">Descrição<input type="text" name="desc" maxlength="140"></label><button class="pri">Criar</button></form>';
     return h;
   }
 
@@ -273,7 +273,7 @@
     if (!membro(id, S.eu)) return '<div class="card"><h2>' + esc(g.nome) + '</h2><p>Este círculo é fechado. Peça para entrar na tela de Círculos.</p></div>';
     var lista = S.posts.filter(function (p) { return p.vis === 'grupo' && p.grupo === id; }).sort(function (a, b) { return b.data.localeCompare(a.data); });
     var h = '<h1>' + esc(g.nome) + '</h1><p class="sub">' + esc(g.desc) + '</p>';
-    h += '<form class="card" id="novoNoGrupo" data-g="' + esc(id) + '"><label class="campo">Escrever para o círculo<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() + '<button class="pri">Publicar no círculo</button></form>';
+    h += '<form class="card nota" id="novoNoGrupo" data-g="' + esc(id) + '"><label class="campo">Escrever para o círculo<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() + '<button class="pri">Publicar no círculo</button></form>';
     if (!lista.length) h += '<p class="vazio">Nada por aqui ainda.</p>';
     lista.forEach(function (p) { h += cartao(p); });
     return h + fim('Não há mais nada neste círculo.');
@@ -282,11 +282,11 @@
   function telaDiario() {
     var minhas = S.posts.filter(function (p) { return p.tipo === 'memoria' && p.autor === S.eu; }).sort(function (a, b) { return a.ano.localeCompare(b.ano); });
     var h = '<h1>Meu diário</h1><p class="sub">Sua linha do tempo, na ordem da vida e não da última hora. Cada lembrança tem sua própria porta: só você, um círculo ou todo mundo.</p>';
-    h += '<form class="card" id="novaMemoria"><h2>Guardar uma lembrança</h2>' +
+    h += '<form class="card nota" id="novaMemoria"><h2>Guardar uma lembrança</h2>' +
       '<label class="campo">Título<input type="text" name="titulo" maxlength="80" required></label>' +
       '<label class="campo">Ano (ou época)<input type="text" name="ano" maxlength="9" placeholder="ex.: 2004" required></label>' +
       '<label class="campo">A história<textarea name="texto" maxlength="1500" required></textarea></label>' + campoMidia() +
-      '<label class="campo">Quem pode ver?<select name="vis">' + opcoesVis() + '</select></label>' +
+      '<label class="campo">Quem pode ler?<select name="vis">' + opcoesVis() + '</select></label>' +
       '<button class="pri">Guardar</button></form>';
     if (!minhas.length) h += '<p class="vazio">Seu diário ainda está em branco.</p>';
     minhas.forEach(function (p) { h += cartao(p); });
@@ -301,7 +301,7 @@
       '<div><h1 style="margin:0">' + esc(u.nome) + '</h1><div class="meta">humor: ' + esc(u.humor) + '</div></div></div>' +
       '<p>' + esc(u.sobre) + '</p><div class="trilha">🎵 Trilha do momento: ' + esc(u.trilha) + '</div></div>';
     if (meu) {
-      h += '<form class="card" id="editarPerfil"><h2>Meu cantinho</h2><label class="campo">Humor<input type="text" name="humor" value="' + esc(u.humor) + '" maxlength="30"></label>' +
+      h += '<form class="card nota" id="editarPerfil"><h2>Meu cantinho</h2><label class="campo">Humor<input type="text" name="humor" value="' + esc(u.humor) + '" maxlength="30"></label>' +
         '<label class="campo">Trilha do momento<input type="text" name="trilha" value="' + esc(u.trilha) + '" maxlength="80"></label>' +
         '<label class="campo">Sobre mim<textarea name="sobre" maxlength="240">' + esc(u.sobre) + '</textarea></label><button>Salvar</button></form>';
     }
@@ -418,8 +418,10 @@
     else h = telaPraca();
     $('#app').innerHTML = h;
     var ativo = r.nome === 'grupo' ? 'grupos' : r.nome;
-    $('#nav').innerHTML = ROTAS.map(function (x) { return '<a href="#' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + x[1] + '</a>'; }).join('') +
-      '<a href="#perfil-' + esc(S.eu) + '"' + (r.nome === 'perfil' ? ' class="on"' : '') + '>Meu perfil</a>';
+    var ab = function (x) { return '<a href="#' + x[0] + '"' + (x[0] === ativo ? ' class="on" aria-current="page"' : '') + '>' + x[1] + '</a>'; };
+    $('#nav').innerHTML = ROTAS.slice(0, 4).map(ab).join('');
+    $('#nav2').innerHTML = ROTAS.slice(4).map(ab).join('') +
+      '<a href="#perfil-' + esc(S.eu) + '"' + (r.nome === 'perfil' ? ' class="on" aria-current="page"' : '') + '>Meu perfil</a>';
     $('#quem').innerHTML = Object.keys(S.users).map(function (k) { return '<option value="' + k + '"' + (k === S.eu ? ' selected' : '') + '>' + esc(S.users[k].nome) + '</option>'; }).join('');
     if (r.nome === 'dados' && mostrarJson) { var ta = $('#json'); if (ta) ta.value = JSON.stringify(S, null, 2); }
     if (r.nome === 'praca') ligarCarrossel();
