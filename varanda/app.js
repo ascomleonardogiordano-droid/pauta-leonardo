@@ -12,6 +12,104 @@
   var ago = function (h) { return new Date(Date.now() - h * 3600e3).toISOString(); };
   var uid = function () { return 'x' + Math.random().toString(36).slice(2, 9); };
 
+  /* ---------- fotos e vídeos ----------
+     Ficam no IndexedDB deste aparelho (o localStorage é pequeno demais).
+     Fotos são redimensionadas e reencodadas: isso remove localização e outros metadados (EXIF).
+     Vídeos entram como estão. Nada sobe para servidor. */
+  var MAX_VIDEO = 25 * 1024 * 1024, MAX_ANEXOS = 4;
+  var dbp = null, mem = {}, urlCache = {}, anexos = [];
+  function db() {
+    if (!dbp) dbp = new Promise(function (res) {
+      try {
+        var r = indexedDB.open('varanda-midia', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('m'); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+    return dbp;
+  }
+  function tx(modo, fn) {
+    return db().then(function (d) {
+      if (!d) { var o = fn(null); return o && o.result !== undefined ? o.result : o; }
+      return new Promise(function (res) {
+        try { var t = d.transaction('m', modo); var out = fn(t.objectStore('m')); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = t.onabort = function () { res(null); }; }
+        catch (e) { res(null); }
+      });
+    });
+  }
+  function midiaPut(id, blob) { return tx('readwrite', function (st) { if (!st) { mem[id] = blob; return true; } return st.put(blob, id); }); }
+  function midiaGet(id) { return tx('readonly', function (st) { return st ? st.get(id) : { result: mem[id] || null }; }); }
+  function midiaDel(id) { delete urlCache[id]; delete mem[id]; return tx('readwrite', function (st) { return st ? st.delete(id) : true; }); }
+  function midiaLimpa() { urlCache = {}; mem = {}; return tx('readwrite', function (st) { return st ? st.clear() : true; }); }
+  function lerDataURL(blob) {
+    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = function () { rej(); }; r.readAsDataURL(blob); });
+  }
+  function reduzirImagem(file) {
+    return lerDataURL(file).then(function (src) {
+      return new Promise(function (res, rej) {
+        var im = new Image();
+        im.onload = function () {
+          var k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+          c.toBlob(function (b) { b ? res(b) : rej(); }, 'image/jpeg', 0.85);
+        };
+        im.onerror = function () { rej(); };
+        im.src = src;
+      });
+    });
+  }
+  function urlMidia(id) {
+    if (urlCache[id]) return Promise.resolve(urlCache[id]);
+    return midiaGet(id).then(function (b) { return b ? lerDataURL(b) : null; }).then(function (u) { if (u) urlCache[id] = u; return u; });
+  }
+  function tam(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function campoMidia() {
+    return '<div class="midia-campo"><label class="btn" for="arq">📷 Foto ou vídeo</label>' +
+      '<input class="sr" type="file" id="arq" accept="image/*,video/*" multiple>' +
+      '<span class="meta">Até ' + MAX_ANEXOS + ' arquivos; vídeo até 25 MB. Nada começa a tocar sozinho.</span>' +
+      '<div id="previas">' + htmlPrevias() + '</div></div>';
+  }
+  function htmlPrevias() {
+    return anexos.map(function (a, i) {
+      return '<div class="previa">' + (a.tipo === 'imagem' ? '<img src="' + a.prev + '" alt="">' : '<span class="vid-ico" aria-hidden="true">🎬</span>') +
+        '<div class="previa-info"><span class="meta" style="margin:0">' + esc(a.nome) + ' · ' + tam(a.blob.size) + '</span>' +
+        '<input type="text" data-alt="' + i + '" maxlength="140" placeholder="Descreva para quem não enxerga (opcional)" value="' + esc(a.alt) + '" aria-label="Descrição do arquivo ' + (i + 1) + '">' +
+        '<button type="button" class="link" data-rm="' + i + '">remover</button></div></div>';
+    }).join('');
+  }
+  function hidratarMidia() {
+    [].forEach.call(document.querySelectorAll('.m[data-mid]'), function (el) {
+      urlMidia(el.getAttribute('data-mid')).then(function (u) {
+        if (!document.body.contains(el)) return;
+        if (!u) { el.innerHTML = '<span class="vazio">Mídia indisponível neste aparelho.</span>'; return; }
+        var alt = el.getAttribute('data-alt') || '';
+        if (el.getAttribute('data-tipo') === 'video') {
+          var v = document.createElement('video'); v.controls = true; v.preload = 'metadata'; v.setAttribute('playsinline', ''); v.src = u; v.setAttribute('aria-label', alt || 'Vídeo'); el.textContent = ''; el.appendChild(v);
+        } else {
+          var im = document.createElement('img'); im.src = u; im.alt = alt; im.loading = 'lazy'; el.textContent = ''; el.appendChild(im);
+        }
+      });
+    });
+  }
+  function adicionarArquivos(lista) {
+    var seq = Promise.resolve();
+    [].forEach.call(lista, function (f) {
+      seq = seq.then(function () {
+        if (anexos.length >= MAX_ANEXOS) { avisar('Máximo de ' + MAX_ANEXOS + ' arquivos por publicação.'); return; }
+        if (f.type.indexOf('video/') === 0) {
+          if (f.size > MAX_VIDEO) { avisar('Vídeo grande demais (' + tam(f.size) + '). O limite do protótipo é 25 MB.'); return; }
+          anexos.push({ id: uid(), tipo: 'video', blob: f, nome: f.name || 'vídeo', alt: '' });
+        } else if (f.type.indexOf('image/') === 0) {
+          return reduzirImagem(f).then(function (b) { return lerDataURL(b).then(function (u) { anexos.push({ id: uid(), tipo: 'imagem', blob: b, nome: f.name || 'foto', alt: '', prev: u }); }); },
+            function () { avisar('Não consegui abrir essa imagem. Tente JPG ou PNG.'); });
+        } else avisar('Só foto e vídeo, por enquanto.');
+      });
+    });
+    return seq.then(function () { var pv = $('#previas'); if (pv) pv.innerHTML = htmlPrevias(); });
+  }
+
   /* ---------- dados de demonstração (fictícios) ---------- */
   function seed() {
     return {
@@ -106,7 +204,8 @@
     var h = '<article class="card" id="' + esc(p.id) + '">';
     h += '<div class="meta">' + autorLink(p.autor) + ' · ' + quando(p.data) + ' · ' + tagVis(p) + (p.ano ? ' · <span class="tag">lembrança de ' + esc(p.ano) + '</span>' : '') + '</div>';
     if (p.titulo) h += '<h3>' + esc(p.titulo) + '</h3>';
-    h += '<p class="texto">' + esc(p.texto) + '</p>';
+    if (p.texto) h += '<p class="texto">' + esc(p.texto) + '</p>';
+    if (p.midia && p.midia.length) h += '<div class="midia">' + p.midia.map(function (m) { return '<div class="m" data-mid="' + esc(m.id) + '" data-tipo="' + esc(m.tipo) + '" data-alt="' + esc(m.alt) + '"><span class="vazio">Carregando…</span></div>'; }).join('') + '</div>';
     h += '<div class="linha">';
     if (!mine) h += '<button data-abraco="' + esc(p.id) + '" aria-pressed="' + ab + '" title="Só quem escreveu vê que você mandou.">🤗 ' + (ab ? 'Abraço enviado' : 'Mandar um abraço') + '</button>';
     else h += '<span class="meta" style="margin:0">' + (p.abracos.length ? '🤗 ' + p.abracos.length + ' abraço(s) — só você vê esse número' : 'Nenhum abraço ainda') + '</span>';
@@ -124,7 +223,7 @@
 
   function compositor(rotulo, visPadrao) {
     return '<form class="card" id="novo"><h2>' + esc(rotulo) + '</h2>' +
-      '<label class="campo">O que você quer guardar ou compartilhar?<textarea name="texto" maxlength="1200" required></textarea></label>' +
+      '<label class="campo">O que você quer guardar ou compartilhar?<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() +
       '<label class="campo">Quem pode ver?<select name="vis">' + opcoesVis() + '</select></label>' +
       '<div id="extra"></div>' +
       '<button class="pri">Publicar</button> <span class="meta" id="hint">A escolha de visibilidade vale só para esta publicação.</span></form>';
@@ -174,7 +273,7 @@
     if (!membro(id, S.eu)) return '<div class="card"><h2>' + esc(g.nome) + '</h2><p>Este círculo é fechado. Peça para entrar na tela de Círculos.</p></div>';
     var lista = S.posts.filter(function (p) { return p.vis === 'grupo' && p.grupo === id; }).sort(function (a, b) { return b.data.localeCompare(a.data); });
     var h = '<h1>' + esc(g.nome) + '</h1><p class="sub">' + esc(g.desc) + '</p>';
-    h += '<form class="card" id="novoNoGrupo" data-g="' + esc(id) + '"><label class="campo">Escrever para o círculo<textarea name="texto" maxlength="1200" required></textarea></label><button class="pri">Publicar no círculo</button></form>';
+    h += '<form class="card" id="novoNoGrupo" data-g="' + esc(id) + '"><label class="campo">Escrever para o círculo<textarea name="texto" maxlength="1200"></textarea></label>' + campoMidia() + '<button class="pri">Publicar no círculo</button></form>';
     if (!lista.length) h += '<p class="vazio">Nada por aqui ainda.</p>';
     lista.forEach(function (p) { h += cartao(p); });
     return h + fim('Não há mais nada neste círculo.');
@@ -186,7 +285,7 @@
     h += '<form class="card" id="novaMemoria"><h2>Guardar uma lembrança</h2>' +
       '<label class="campo">Título<input type="text" name="titulo" maxlength="80" required></label>' +
       '<label class="campo">Ano (ou época)<input type="text" name="ano" maxlength="9" placeholder="ex.: 2004" required></label>' +
-      '<label class="campo">A história<textarea name="texto" maxlength="1500" required></textarea></label>' +
+      '<label class="campo">A história<textarea name="texto" maxlength="1500" required></textarea></label>' + campoMidia() +
       '<label class="campo">Quem pode ver?<select name="vis">' + opcoesVis() + '</select></label>' +
       '<button class="pri">Guardar</button></form>';
     if (!minhas.length) h += '<p class="vazio">Seu diário ainda está em branco.</p>';
@@ -269,7 +368,7 @@
     return '<h1>Meus dados</h1><p class="sub">O que existe sobre você e como levar embora ou apagar.</p>' +
       '<div class="card"><h2>O que este protótipo guarda</h2><p>Só o que você escreve aqui, e <strong>apenas neste navegador</strong>. Nenhum servidor recebe nada.</p></div>' +
       '<div class="card"><h2>O que a Varanda não coleta</h2><table><tr><th>Dado</th><th>Coletado?</th></tr>' +
-      '<tr><td>Tempo de tela</td><td>Não</td></tr><tr><td>Cliques, rolagem, hesitação</td><td>Não</td></tr><tr><td>Lista de contatos</td><td>Não</td></tr><tr><td>Localização</td><td>Não</td></tr><tr><td>Perfil para anúncios</td><td>Não, não há anúncios</td></tr></table></div>' +
+      '<tr><td>Tempo de tela</td><td>Não</td></tr><tr><td>Cliques, rolagem, hesitação</td><td>Não</td></tr><tr><td>Lista de contatos</td><td>Não</td></tr><tr><td>Localização</td><td>Não</td></tr><tr><td>Conteúdo de fotos e vídeos</td><td>Não sai deste aparelho. Fotos perdem localização (EXIF) ao entrar; vídeos mantêm os metadados do arquivo original</td></tr><tr><td>Perfil para anúncios</td><td>Não, não há anúncios</td></tr></table></div>' +
       '<div class="card"><h2>Levar ou apagar</h2><p class="linha"><button data-exportar="1">' + (mostrarJson ? 'Esconder meus dados' : 'Ver meus dados (JSON)') + '</button>' +
       (pend === 'reset' ? '<span class="meta" style="margin:0">Apagar tudo?</span><button data-resetar-sim="1">Sim, apagar tudo</button><button class="link" data-nao="1">Não</button>' : '<button data-resetar="1">Apagar tudo e recomeçar</button>') + '</p>' +
       (mostrarJson ? '<label class="campo" for="json">Seus dados, para copiar e guardar</label><textarea id="json" readonly rows="8"></textarea><button data-copiar="1">Copiar</button>' : '') + '</div>' +
@@ -291,7 +390,7 @@
       '<tr><td>Notificações intermitentes</td><td>Padrão desligado; três horários ou resumo diário, por escolha</td><td>Ritmo, Cartinha</td></tr>' +
       '<tr><td>Recompensa variável</td><td>Sem curtidas públicas; abraço privado</td><td>Qualquer publicação</td></tr>' +
       '<tr><td>Extração de dados comportamentais</td><td>Nenhum rastreio; exportar e apagar tudo</td><td>Meus dados</td></tr>' +
-      '<tr><td>Hipervisibilidade sem escuta</td><td>Círculos pequenos; escolha de público por publicação</td><td>Círculos, Diário</td></tr></table></div>' +
+      '<tr><td>(não consta na lista do projeto) vídeo que toca sozinho e engata o próximo</td><td>Proposta minha: nada toca sozinho e não existe “próximo vídeo”</td><td>Qualquer publicação com mídia</td></tr><tr><td>Hipervisibilidade sem escuta</td><td>Círculos pequenos; escolha de público por publicação</td><td>Círculos, Diário</td></tr></table></div>' +
       '<div class="card"><h2>Limites e o que ainda não sabemos</h2><ul>' +
       '<li>A base neurocientífica do projeto trata de <strong>adolescentes</strong>. O público 27+ da Varanda é uma decisão de produto (nostalgia, memória, comunidade), não uma conclusão da neurociência.</li>' +
       '<li>Este protótipo <strong>não prova</strong> que o desenho reduz uso compulsivo. É uma hipótese de design a testar.</li>' +
@@ -324,6 +423,7 @@
     $('#quem').innerHTML = Object.keys(S.users).map(function (k) { return '<option value="' + k + '"' + (k === S.eu ? ' selected' : '') + '>' + esc(S.users[k].nome) + '</option>'; }).join('');
     if (r.nome === 'dados' && mostrarJson) { var ta = $('#json'); if (ta) ta.value = JSON.stringify(S, null, 2); }
     if (r.nome === 'praca') ligarCarrossel();
+    hidratarMidia();
   }
 
   /* visibilidade "círculo": o select já traz grupo:ID */
@@ -355,6 +455,12 @@
     clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 3500);
   }
 
+  function publicar(base, f) {
+    var lista = anexos.slice(); anexos = [];
+    return Promise.all(lista.map(function (a) {
+      return midiaPut(a.id, a.blob).then(function () { return { id: a.id, tipo: a.tipo, alt: a.alt || '', nome: a.nome }; });
+    })).then(function (m) { base.midia = m; novoPost(base, f); });
+  }
   function novoPost(base, f) {
     var v = lerVis(f.vis);
     var p = Object.assign({ id: uid(), autor: S.eu, vis: v.vis, texto: '', data: new Date().toISOString(), abracos: [], respostas: [] }, base);
@@ -366,9 +472,9 @@
   document.addEventListener('submit', function (e) {
     var f = e.target, d = new FormData(f);
     e.preventDefault();
-    if (f.id === 'novo') { var t = String(d.get('texto')).trim(); if (t) novoPost({ tipo: 'mural', texto: t }, { vis: d.get('vis') }); }
-    else if (f.id === 'novaMemoria') novoPost({ tipo: 'memoria', titulo: String(d.get('titulo')).trim(), ano: String(d.get('ano')).trim(), texto: String(d.get('texto')).trim() }, { vis: d.get('vis') });
-    else if (f.id === 'novoNoGrupo') { var tt = String(d.get('texto')).trim(); if (tt) novoPost({ tipo: 'mural', texto: tt }, { vis: 'grupo:' + f.getAttribute('data-g') }); }
+    if (f.id === 'novo') { var t = String(d.get('texto')).trim(); if (t || anexos.length) publicar({ tipo: 'mural', texto: t }, { vis: d.get('vis') }); }
+    else if (f.id === 'novaMemoria') publicar({ tipo: 'memoria', titulo: String(d.get('titulo')).trim(), ano: String(d.get('ano')).trim(), texto: String(d.get('texto')).trim() }, { vis: d.get('vis') });
+    else if (f.id === 'novoNoGrupo') { var tt = String(d.get('texto')).trim(); if (tt || anexos.length) publicar({ tipo: 'mural', texto: tt }, { vis: 'grupo:' + f.getAttribute('data-g') }); }
     else if (f.id === 'novoGrupo') { var nome = String(d.get('nome')).trim(); if (nome) { S.grupos.push({ id: uid(), nome: nome, desc: String(d.get('desc')).trim(), membros: [S.eu] }); save(); render(); } }
     else if (f.id === 'editarPerfil') { var u = S.users[S.eu]; u.humor = String(d.get('humor')); u.trilha = String(d.get('trilha')); u.sobre = String(d.get('sobre')); save(); render(); }
     else if (f.id === 'formRitmo') {
@@ -392,12 +498,13 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     var a;
-    if ((a = b.getAttribute('data-abraco'))) {
+    if ((a = b.getAttribute('data-rm'))) { anexos.splice(+a, 1); var pv = $('#previas'); if (pv) pv.innerHTML = htmlPrevias(); }
+    else if ((a = b.getAttribute('data-abraco'))) {
       var p = S.posts.filter(function (x) { return x.id === a; })[0], i = p.abracos.indexOf(S.eu);
       if (i >= 0) p.abracos.splice(i, 1); else p.abracos.push(S.eu);
       save(); render();
     } else if ((a = b.getAttribute('data-apagar'))) { pend = 'del:' + a; render(); }
-    else if ((a = b.getAttribute('data-apagar-sim'))) { S.posts = S.posts.filter(function (x) { return x.id !== a || x.autor !== S.eu; }); pend = null; save(); render(); }
+    else if ((a = b.getAttribute('data-apagar-sim'))) { S.posts.forEach(function (x) { if (x.id === a && x.autor === S.eu && x.midia) x.midia.forEach(function (m) { midiaDel(m.id); }); }); S.posts = S.posts.filter(function (x) { return x.id !== a || x.autor !== S.eu; }); pend = null; save(); render(); }
     else if (b.hasAttribute('data-nao')) { pend = null; render(); }
     else if ((a = b.getAttribute('data-slide'))) { var al = Math.max(0, Math.min(slides().length - 1, idxAtual() + parseInt(a, 10))); irPara(al, true); }
     else if ((a = b.getAttribute('data-pag'))) { pagina += parseInt(a, 10); slideIdx = 0; render(); window.scrollTo(0, 0); }
@@ -411,11 +518,18 @@
       try { navigator.clipboard.writeText(ta.value).then(ok, falha); } catch (x) { falha(); }
     }
     else if (b.hasAttribute('data-resetar')) { pend = 'reset'; render(); }
-    else if (b.hasAttribute('data-resetar-sim')) { try { localStorage.removeItem(KEY); } catch (x) { /* ok */ } S = seed(); pend = null; mostrarJson = false; save(); location.hash = '#praca'; render(); }
+    else if (b.hasAttribute('data-resetar-sim')) { try { localStorage.removeItem(KEY); } catch (x) { /* ok */ } midiaLimpa(); S = seed(); pend = null; mostrarJson = false; save(); location.hash = '#praca'; render(); }
   });
 
-  $('#quem').addEventListener('change', function (e) { S.eu = e.target.value; slideIdx = 0; pagina = 1; pend = null; save(); render(); });
-  window.addEventListener('hashchange', function () { slideIdx = 0; pend = null; render(); window.scrollTo(0, 0); });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'arq') { var fs = e.target.files; adicionarArquivos(fs).then(function () { e.target.value = ''; }); }
+  });
+  document.addEventListener('input', function (e) {
+    var i = e.target.getAttribute && e.target.getAttribute('data-alt');
+    if (i !== null && i !== undefined && anexos[+i]) anexos[+i].alt = e.target.value;
+  });
+  $('#quem').addEventListener('change', function (e) { S.eu = e.target.value; slideIdx = 0; pagina = 1; pend = null; anexos = []; save(); render(); });
+  window.addEventListener('hashchange', function () { slideIdx = 0; pend = null; anexos = []; render(); window.scrollTo(0, 0); });
 
   load();
   render();

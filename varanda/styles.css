@@ -77,3 +77,17 @@ th{background:var(--bg)}
 :focus-visible{outline:3px solid var(--rosa);outline-offset:2px}
 @media (max-width:560px){h1{font-size:24px}.topo{padding:10px 12px}}
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}button:hover{transform:none}}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.midia-campo{margin:8px 0}
+.midia-campo .btn{margin-right:8px}
+.midia-campo input.sr:focus-visible + .meta{outline:3px solid var(--rosa)}
+label.btn:has(+ input.sr:focus-visible){outline:3px solid var(--rosa);outline-offset:2px}
+.previa{display:flex;gap:10px;align-items:flex-start;margin:8px 0;padding:8px;border:2px dashed var(--mute);border-radius:12px}
+.previa img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid var(--linha);flex:none}
+.vid-ico{display:grid;place-items:center;width:64px;height:64px;font-size:28px;border-radius:8px;border:2px solid var(--linha);flex:none}
+.previa-info{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.previa-info input{padding:5px 8px;font-size:14px}
+.midia{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+.midia .m img,.midia .m video{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:10px;border:2px solid var(--linha);background:var(--bg)}
+.midia .m video{width:100%;background:#000}
